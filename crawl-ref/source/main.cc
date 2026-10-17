@@ -75,6 +75,7 @@
 #include "god-prayer.h"
 #include "hints.h"
 #include "hiscores.h"
+#include "hns-revival.h"
 #include "initfile.h"
 #include "invent.h"
 #include "item-name.h"
@@ -192,7 +193,7 @@ const struct coord_def Compass[9] =
 
 // Functions in main module
 static void _launch_game_loop();
-NORETURN static void _launch_game();
+NORETURN static void _launch_game(const hns_revival *revival = nullptr);
 
 static void _do_berserk_no_combat_penalty();
 
@@ -390,15 +391,23 @@ static void _reset_game()
 static void _launch_game_loop()
 {
     bool game_ended = false;
+    unique_ptr<hns_revival> revival;
     do
     {
         try
         {
             game_ended = false;
-            _launch_game();
+            _launch_game(revival.get());
+        }
+        catch (const hns_revival &checkpoint)
+        {
+            revival.reset(new hns_revival(checkpoint));
+            game_ended = true;
+            _reset_game();
         }
         catch (const game_ended_condition &ge)
         {
+            revival.reset();
             game_ended = true;
             crawl_state.last_game_exit = ge;
             _reset_game();
@@ -416,14 +425,15 @@ static void _launch_game_loop()
         {
             end(1, false, "Error: truncation inside the save file.\n");
         }
-    } while (crawl_should_restart(crawl_state.last_game_exit.exit_reason)
+    } while ((revival
+              || crawl_should_restart(crawl_state.last_game_exit.exit_reason))
              && game_ended
              && !crawl_state.seen_hups);
 }
 
-NORETURN static void _launch_game()
+NORETURN static void _launch_game(const hns_revival *revival)
 {
-    const bool game_start = startup_step();
+    const bool game_start = startup_step(revival);
 
     // Attach the macro key recorder
     remove_key_recorder(&repeat_again_rec);
@@ -486,6 +496,8 @@ NORETURN static void _launch_game()
 
     // Initialise save game so we can recover from crashes on D:1.
     save_game_state();
+    if (!hns_has_checkpoint(*you.save))
+        hns_checkpoint();
 
 #ifdef USE_TILE_WEB
     // Send initial game state before we do any UI updates

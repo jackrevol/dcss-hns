@@ -22,6 +22,7 @@
 #include "dungeon.h"
 #include "env.h"
 #include "files.h"
+#include "hns-revival.h"
 #include "god-abil.h"
 #include "god-companions.h"
 #include "god-passive.h" // passive_t::slow_abyss
@@ -1145,6 +1146,7 @@ void floor_transition(dungeon_feature_type how,
     you.trigger_movement_effects(MV_NO_TRAVEL_STOP);
 
     request_autopickup();
+    hns_checkpoint();
 }
 
 /**

@@ -38,6 +38,7 @@
 #include "god-abil.h"
 #include "god-passive.h"
 #include "hints.h"
+#include "hns-revival.h"
 #include "hiscores.h"
 #include "invent.h"
 #include "item-prop.h"
@@ -1589,6 +1590,9 @@ void player_die(kill_method_type death_type, mid_t source, int dam,
         // only quitting can lead to this?
         screen_end_game("", game_exit::quit);
     }
+
+    if (_is_real_death(death_type))
+        hns_offer_revival();
 
     // Okay, so you're dead.
     take_note(Note(NOTE_DEATH, you.hp, you.hp_max,

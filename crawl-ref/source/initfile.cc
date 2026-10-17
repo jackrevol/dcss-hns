@@ -794,6 +794,7 @@ const vector<GameOption*> game_options::build_options_list()
 #else
         new DisabledGameOption({"messaging"}),
 #endif
+        new BoolGameOption(SIMPLE_NAME(hns_revival), true),
 #ifdef DGAMELAUNCH
         new DisabledGameOption(
             {"name_bypasses_menu", "restart_after_save", "newgame_after_quit",

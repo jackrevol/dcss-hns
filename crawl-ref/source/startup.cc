@@ -23,6 +23,7 @@
 #include "god-abil.h"
 #include "god-passive.h"
 #include "hints.h"
+#include "hns-revival.h"
 #include "initfile.h"
 #include "item-name.h"
 #include "item-prop.h"
@@ -1018,9 +1019,23 @@ static bool _exit_type_allows_menu_bypass(game_exit exit)
 }
 #endif
 
-bool startup_step()
+bool startup_step(const hns_revival *revival)
 {
     _initialize();
+
+    if (revival)
+    {
+        crawl_state.type = revival->type;
+        crawl_state.bypassed_startup_menu = true;
+        if (!restore_game(revival->filename))
+        {
+            game_ended(game_exit::abort,
+                       "Unable to restore the revival checkpoint.");
+        }
+        _post_init(false);
+        mpr("You return to your last level entry. Welcome back!");
+        return false;
+    }
 
     newgame_def choice   = Options.game;
 

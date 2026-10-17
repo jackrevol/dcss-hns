@@ -5,5 +5,7 @@
 
 #pragma once
 
-bool startup_step();
+struct hns_revival;
+
+bool startup_step(const hns_revival *revival = nullptr);
 void cio_init();

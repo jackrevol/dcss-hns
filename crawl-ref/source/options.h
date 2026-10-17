@@ -789,6 +789,7 @@ public:
                                     // CL options would bring up the startup
                                     // menu.
     bool        restart_after_save; // .. or on save
+    bool        hns_revival;
     bool        newgame_after_quit; // override the restart_after_game behaviour
                                     // to always start a new game on quit.
 

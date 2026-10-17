@@ -83,6 +83,7 @@ god-prayer.o \
 god-wrath.o \
 hash.o \
 hints.o \
+hns-revival.o \
 hiscores.o \
 initfile.o \
 invent.o \
