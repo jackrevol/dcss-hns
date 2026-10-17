@@ -5801,7 +5801,6 @@ player::player()
     num_turns        = 0;
     exploration      = 0;
 
-    trapped            = false;
     triggered_spectral = false;
     newly_revealed_cells = 0;
     took_instant_action = false;

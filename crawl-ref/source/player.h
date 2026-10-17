@@ -507,9 +507,6 @@ public:
     // and is calculated to assess e.g. mapping / teleport effects.
     int explore_estimate;
 
-    // If true, player has triggered a trap effect by exploring.
-    bool trapped;
-
     // Number of cells newly revealed by exploring.
     int newly_revealed_cells;
 

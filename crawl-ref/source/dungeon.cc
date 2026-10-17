@@ -4488,7 +4488,8 @@ static void _builder_items()
     int i = 0;
     object_class_type specif_type = OBJ_RANDOM;
     int items_levels = env.absdepth0;
-    int items_wanted = _num_items_wanted(items_levels);
+    // 일반 바닥 아이템의 생성 횟수를 원본의 3배로 늘린다.
+    const int items_wanted = 3 * _num_items_wanted(items_levels);
 
     if (player_in_branch(BRANCH_VAULTS))
     {
@@ -4501,9 +4502,14 @@ static void _builder_items()
         items_levels *= 2;       // Four levels' worth, in fact.
     }
 
+    // 분기별 보정을 적용한 품질 인자를 2배로 높인다.
+    items_levels *= 2;
+
     for (i = 0; i < items_wanted; i++)
     {
         int item = items(true, specif_type, OBJ_RANDOM, items_levels);
+        if (item == NON_ITEM)
+            break;
 
         _randomly_place_item(item);
     }

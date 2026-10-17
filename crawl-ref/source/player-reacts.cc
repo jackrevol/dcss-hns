@@ -598,15 +598,6 @@ void player_reacts_to_monsters()
     you.update_fearmongers();
 }
 
-void check_trapped()
-{
-    if (you.trapped)
-    {
-        do_trap_effects();
-        you.trapped = false;
-    }
-}
-
 // Register taking an action which takes no time.
 void player_takes_instant_action()
 {
@@ -624,7 +615,6 @@ void player_reacts_to_instant_action()
     mons_reset_just_seen();
     you.update_beholders();
     you.update_fearmongers();
-    check_trapped();
     trigger_exploration_conducts();
 }
 

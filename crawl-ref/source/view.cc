@@ -329,7 +329,6 @@ static update_flags player_view_update_at(const coord_def &gc)
             you.newly_revealed_cells++;
             const int density = env.density ? env.density : 2000;
             you.exploration += div_rand_round(1<<16, density);
-            roll_trap_effects();
         }
         env.pgrid(gc) |= FPROP_SEEN_OR_NOEXP;
     }

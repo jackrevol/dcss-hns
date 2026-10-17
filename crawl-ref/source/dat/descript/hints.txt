@@ -540,13 +540,6 @@ weapons' damage.
 damage of blades and ranged weapons.
 # Also shields.
 %%%%
-HINT_MALEVOLENCE
-
-As you explore the dungeon and reveal new tiles, the malevolent forces of the
-dungeon may randomly cause bad things to happen to you. When this happens,
-pause, think carefully, and be ready to use consumables or abilities. Fight to
-survive!"
-%%%%
 HINT_OPPORTUNITY_ATTACK
 
 When you move away from an enemy, they have a small (1/3) chance of taking

@@ -232,8 +232,7 @@ granted improvements to specific skills, but that equipment can no longer
 be enchanted normally and can only be removed by shattering it forever.
 As worshippers bind more of their equipment, Ashenzari will grant increasing
 knowledge of the surrounding dungeon. Eventually, Ashenzari will reveal the
-invisible, grant clarity of mind, and protect worshippers from the Dungeon's
-malevolent forces.
+invisible and grant clarity of mind.
 %%%%
 Beogh powers
 

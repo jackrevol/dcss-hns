@@ -966,7 +966,6 @@ static bool _rare_hints_event(hints_event_type event)
     case HINT_GAINED_RANGED_SKILL:
     case HINT_CHOOSE_STAT:
     case HINT_AUTO_EXCLUSION:
-    case HINT_MALEVOLENCE:
     case HINT_OPPORTUNITY_ATTACK:
         return true;
     default:
@@ -1246,10 +1245,6 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
     case HINT_CHOOSE_STAT:
         print_hint("HINT_CHOOSE_STAT");
-        break;
-
-    case HINT_MALEVOLENCE:
-        print_hint("HINT_MALEVOLENCE");
         break;
 
     case HINT_OPPORTUNITY_ATTACK:

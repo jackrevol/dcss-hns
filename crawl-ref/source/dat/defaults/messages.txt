@@ -30,7 +30,6 @@ msc += $danger:place you under penance
 msc += $danger:cause instant excommunication
 msc += $danger:corrodes you
 msc += $danger:Your body becomes as fragile as glass
-msc += lightmagenta:malevolent force fills
 msc += lightmagenta:too known and too boring
 
 # Less urgent, but still significant messages
@@ -109,7 +108,6 @@ force_more_message += You rejoin the land of the living
 force_more_message += You cannot cast spells when silenced
 force_more_message += This is a scroll of acquirement
 force_more_message += create your gizmo
-force_more_message += malevolent force fills
 force_more_message += malevolence running through your instability
 force_more_message += You feel space start to destabilise
 force_more_message += You feel the winds around you beginning to shift

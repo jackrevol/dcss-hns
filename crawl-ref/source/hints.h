@@ -139,7 +139,7 @@ enum hints_event_type
     HINT_ANIMATE_CORPSE_SKELETON,
 #endif
     HINT_SEEN_WEB,
-    HINT_MALEVOLENCE,
+    HINT_MALEVOLENCE, // 저장된 힌트 인덱스의 호환성을 위해 예약한다.
     HINT_OPPORTUNITY_ATTACK,
     HINT_ON_FIRE,
 #if TAG_MAJOR_VERSION == 34

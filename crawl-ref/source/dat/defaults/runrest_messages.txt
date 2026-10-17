@@ -23,7 +23,6 @@ stop += emerges from the mists of memory
 stop += You feel space start to destabilise
 
 # Traps and doors
-stop += A malevolent force
 stop += A sentinel's mark forms upon you\.
 stop += it creaks loudly
 stop += flies open with a bang

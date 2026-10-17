@@ -1,6 +1,5 @@
 #pragma once
 
-void check_trapped();
 
 // Used only in world_reacts()
 void player_reacts();

@@ -1,6 +1,13 @@
-[![Build Status](https://github.com/crawl/crawl/workflows/Build/badge.svg)](https://github.com/crawl/crawl/actions/)
+[![Build Status](https://github.com/jackrevol/dcss-hns/workflows/Build/badge.svg)](https://github.com/jackrevol/dcss-hns/actions/)
 
 # Dungeon Crawl Stone Soup
+
+## DCSS HNS 포크
+
+일반 던전 바닥 아이템의 생성 횟수를 **3배**, 생성 품질 인자(`item_level`)를
+**2배**로 높이고, 탐험 중 무작위로 발생하는 **던전의 악의** 이벤트를 제거한
+포크입니다. 자세한 적용 범위와 빌드 방법은 [포크 안내](crawl-ref/docs/hns.md)를
+참고하세요.
 
 Dungeon Crawl Stone Soup is a game of dungeon exploration, combat and magic, involving characters of diverse skills, worshipping deities of great power and caprice. To win, you'll need to be a master of tactics and strategy, and prevail against overwhelming odds.
 
