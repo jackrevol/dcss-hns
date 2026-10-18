@@ -450,6 +450,7 @@
     </ClCompile>
     <ClCompile Include="..\player-notices.cc">
       <Filter>cc</Filter>
+    </ClCompile>
     <ClCompile Include="..\player-stats.cc">
       <Filter>cc</Filter>
     </ClCompile>
@@ -772,6 +773,12 @@
       <Filter>cc</Filter>
     </ClCompile>
     <ClCompile Include="..\hints.cc">
+      <Filter>cc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hns-loot.cc">
+      <Filter>cc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hns-revival.cc">
       <Filter>cc</Filter>
     </ClCompile>
     <ClCompile Include="..\hash.cc">
@@ -1372,6 +1379,12 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\hints.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hns-loot.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hns-revival.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\hiscores.h">

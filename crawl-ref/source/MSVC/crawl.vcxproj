@@ -379,6 +379,8 @@ python.exe util/gen-all.py</Command>
     <ClCompile Include="..\god-wrath.cc" />
     <ClCompile Include="..\hash.cc" />
     <ClCompile Include="..\hints.cc" />
+    <ClCompile Include="..\hns-loot.cc" />
+    <ClCompile Include="..\hns-revival.cc" />
     <ClCompile Include="..\hiscores.cc" />
     <ClCompile Include="..\initfile.cc" />
     <ClCompile Include="..\invent.cc" />
@@ -771,6 +773,8 @@ python.exe util/gen-all.py</Command>
     <ClInclude Include="..\god-wrath.h" />
     <ClInclude Include="..\hash.h" />
     <ClInclude Include="..\hints.h" />
+    <ClInclude Include="..\hns-loot.h" />
+    <ClInclude Include="..\hns-revival.h" />
     <ClInclude Include="..\hiscores.h" />
     <ClInclude Include="..\holy-word-source-type.h" />
     <ClInclude Include="..\hunger-state-t.h" />
