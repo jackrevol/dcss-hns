@@ -1,24 +1,33 @@
 name: Platform Release
 
 on:
+  workflow_run:
+    workflows: [Build]
+    branches: [master]
+    types: [completed]
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build and attach files to
-        required: true
+        description: Existing tag to build (leave empty to release the selected branch commit)
+        required: false
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: platform-release-${{ github.event.release.tag_name || inputs.tag }}
+  group: platform-release-${{ github.event.release.tag_name || inputs.tag || github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   release_ref:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
@@ -26,17 +35,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ (github.event.release.tag_name || inputs.tag) && format('refs/tags/{0}', github.event.release.tag_name || inputs.tag) || github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
-      - name: Resolve the existing release to an exact commit
+      - name: Resolve the release tag and exact source commit
         id: release
         env:
-          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          gh release view "$RELEASE_TAG" --json tagName --jq .tagName
-          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          sha="$(git rev-parse HEAD)"
+          tag="${RELEASE_TAG:-hns-${sha:0:12}}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
   android:
     needs: release_ref
@@ -136,8 +145,17 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.release_ref.outputs.tag }}
         run: python3 .github/scripts/collect-release.py artifacts release-assets
-      - name: Attach files to the existing release
+      - name: Publish the complete release or update its files
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.release_ref.outputs.tag }}
-        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          RELEASE_SHA: ${{ needs.release_ref.outputs.sha }}
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --target "$RELEASE_SHA" \
+              --title "DCSS HNS $RELEASE_TAG" \
+              --generate-notes --latest
+          fi

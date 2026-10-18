@@ -238,12 +238,15 @@ GitHub Actions의 **Mobile Android** 워크플로는 UI 검사, 현재 HNS 엔�
 artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lua·폰트
 소스를 포함한 배포용 소스 압축 파일을 생성합니다.
 
-**[Platform Release](../.github/workflows/release.yml)**는 릴리즈 게시 시 이
-워크플로를 재사용하고, 검증한 동일 UI·WASM 엔진을 Windows x64, Linux x64,
-macOS Intel/Apple Silicon 앱으로 패키징합니다. 모든 플랫폼의 빌드와
-오프라인 플레이 검증이 성공하면 APK, 데스크톱 압축 파일 4개, 전체 대응 소스와
-SHA-256 체크섬을 해당 릴리즈에 첨부합니다. 수동 실행의 `tag`는 이미 존재하는
-릴리즈를 지정하며, 재실행하면 같은 이름의 첨부 파일을 교체합니다.
+**[Platform Release](../.github/workflows/release.yml)**는 `master`에 push한
+커밋의 **Build** 성공 후 이 워크플로를 재사용하고, 검증한 동일 UI·WASM 엔진을
+Windows x64, Linux x64, macOS Intel/Apple Silicon 앱으로 패키징합니다.
+모든 플랫폼의 빌드와 오프라인 플레이 검증이 성공하면
+`hns-<커밋 SHA 앞 12자리>` 태그로 릴리즈를 생성하여 APK, 데스크톱 압축 파일
+4개, 전체 대응 소스와 SHA-256 체크섬을 함께 게시합니다.
+수동 실행에서 `tag`를 비워 두면 선택한 브랜치의 커밋으로 새 릴리즈를 만들고,
+기존 태그를 지정하면 해당 태그의 커밋을 빌드합니다. 릴리즈를 직접 게시해도
+해당 태그에 첨부 파일을 추가하며, 재실행하면 같은 이름의 파일을 교체합니다.
 기존 Android 전용 첫 릴리즈 태그에는 데스크톱 빌드 스크립트가 없어
 이 자동화를 사용하려면 새 스크립트가 포함된 태그가 필요합니다.
 
