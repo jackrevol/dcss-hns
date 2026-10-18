@@ -1,0 +1,149 @@
+import { bundledGameVersion } from '../offline/bundled-game'
+import { acquireOfflineOwnership } from './ownership'
+import { ARTIFACT_CACHE, cachedEngineBuild } from '../offline/artifact-store'
+import { readOfflineFiles, replaceOfflineFiles } from '../offline/save-transfer'
+import { createSupabaseProvider, linkCloudAccount } from './supabase-provider'
+import { snapshot } from './snapshot'
+import { cloudStore } from './store'
+import { CloudBlockedError, CloudSynchronizer } from './sync'
+
+async function installedBuild(): Promise<string | undefined> {
+  try {
+    const included = await bundledGameVersion()
+    if (included) return included.build
+    return typeof caches === 'undefined' ? undefined : await cachedEngineBuild(await caches.open(ARTIFACT_CACHE))
+  } catch { return undefined }
+}
+
+const provider = createSupabaseProvider()
+export const cloud = new CloudSynchronizer(provider, {
+  async local() {
+    const [files, build] = await Promise.all([readOfflineFiles(), installedBuild()])
+    return snapshot(files, build)
+  },
+  replace: value => replaceOfflineFiles(value.files),
+  ...cloudStore,
+})
+
+let queue: Promise<unknown> = Promise.resolve()
+let releaseGame: (() => Promise<void>) | null = null
+let initialized: Promise<void> | undefined
+let timer: ReturnType<typeof setTimeout> | undefined
+let starting = false
+let watching = false
+
+function serial<T>(action: () => Promise<T>): Promise<T> {
+  const result = queue.then(action)
+  queue = result.catch(() => {})
+  return result
+}
+const lease = acquireOfflineOwnership
+function init(): Promise<void> {
+  if (!initialized) initialized = cloud.initialize().catch(e => { initialized = undefined; throw e })
+  if (!watching) {
+    watching = true
+    const retry = (): void => {
+      if (cloud.playing) savedCheckpoint()
+      // Upload only: foregrounding must not replace files under an open RC
+      // editor. Downloads happen explicitly in the lobby or after game exit.
+      else if (!starting) void syncIdle({ pushOnly: true }).catch(() => {})
+    }
+    window.addEventListener('online', retry)
+    window.addEventListener('hns-foreground', retry)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) retry() })
+  }
+  return initialized
+}
+export function initializeCloud(): Promise<void> { return init() }
+
+export function syncIdle(options: Parameters<CloudSynchronizer['sync']>[0] = {}): Promise<void> {
+  if (starting) return Promise.reject(new CloudBlockedError('게임 시작 후 저장된 진행을 동기화합니다.'))
+  return serial(async () => {
+    await init()
+    if (!cloud.link) return
+    if (starting || cloud.playing) throw new CloudBlockedError('게임을 저장하고 종료한 뒤 동기화하세요.')
+    const release = await lease()
+    try {
+      if (starting) return
+      await cloud.sync(options)
+    } finally { await release() }
+  })
+}
+export function refreshCloudAccount(): Promise<void> {
+  return serial(async () => {
+    if (cloud.playing || starting) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    const current = await provider.status()
+    if (current?.key !== cloud.link?.key) await cloud.initialize()
+    initialized = Promise.resolve()
+  })
+}
+export async function connectCloudAccount(): Promise<void> {
+  await serial(async () => {
+    if (cloud.playing || starting) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    linkCloudAccount()
+    await cloud.initialize()
+    initialized = Promise.resolve()
+  })
+  await syncIdle()
+}
+export function disconnectCloudAccount(): Promise<void> {
+  return serial(async () => {
+    if (starting) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    await init(); await cloud.disconnect()
+  })
+}
+
+// No auth, server read, or download on the play path. Cancel any in-flight
+// sync first; serial ordering lets an already-started local IDB transaction
+// finish before the engine loads it. A failed network cannot block play.
+export function beginCloudGame(): Promise<void> {
+  if (starting || releaseGame) return Promise.reject(new CloudBlockedError('이미 게임이 실행 중입니다.'))
+  starting = true
+  cloud.cancelSync()
+  provider.cancel()
+  return serial(async () => {
+    try {
+      await init().catch(() => {})
+      releaseGame = await lease()
+      cloud.playing = true
+    } finally { starting = false }
+  })
+}
+export function savedCheckpoint(): void {
+  if (!cloud.link || timer) return
+  // Coalesce frequent checkpoints to limit full-pack bandwidth consumption.
+  // This never delays the engine's local checkpoint.
+  timer = setTimeout(() => {
+    timer = undefined
+    void serial(async () => {
+      if (cloud.playing && cloud.link && !starting) {
+        cloud.pending()
+        await cloud.sync({ pushOnly: true })
+      }
+    }).catch(() => {})
+  }, 60_000)
+}
+export function endCloudGame(): void {
+  if (timer) { clearTimeout(timer); timer = undefined }
+  cloud.cancelSync()
+  provider.cancel()
+  void serial(async () => {
+    cloud.playing = false
+    await releaseGame?.(); releaseGame = null
+  }).then(() => syncIdle()).catch(() => {})
+}
+export function restoreCloudArchive(id: string): Promise<void> {
+  return serial(async () => {
+    if (starting || cloud.playing) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    const release = await lease()
+    try {
+      const entry = (await cloudStore.archives()).find(a => a.id === id)
+      if (!entry) throw new Error('복구 사본을 찾지 못했습니다.')
+      const files = await readOfflineFiles()
+      await cloudStore.archive('복구 전 이 기기', await snapshot(files, await installedBuild()))
+      await replaceOfflineFiles(entry.snapshot.files)
+      cloud.pending()
+      window.dispatchEvent(new Event('hns-cloud-restored'))
+    } finally { await release() }
+  })
+}

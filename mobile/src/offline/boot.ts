@@ -1,3 +1,4 @@
+import { endCloudGame, savedCheckpoint } from '../cloud/runtime'
 // Assembles the offline stack: LocalConnection ↔ mini-server ↔ EnginePort.
 // Dynamic-imported from app.ts (offline-lobby slot tap or ?offline=1) so the
 // engine machinery stays out of the main bundle.
@@ -62,9 +63,21 @@ export function bootOffline(params: URLSearchParams, name: string): OfflineBoot 
   const mini = createMiniServer(port, (msg) => {
     track?.note(msg)
     conn.deliver(msg)
-  }, track)
+  }, real ? {
+    milestone: fields => track?.milestone(fields),
+    checkpoint: () => { track?.checkpoint(); savedCheckpoint() },
+  } : undefined)
   conn.onSend = (msg) => mini.handleClientMsg(msg)
-  conn.onShutdown = () => mini.dispose()
+  let disposed = false
+  const dispose = (): void => {
+    if (disposed) return
+    disposed = true
+    engineRunning = false
+    detachLifecycle?.()
+    mini.dispose()
+    if (real) endCloudGame()
+  }
+  conn.onShutdown = dispose
 
   const detachLifecycle = real ? watchForBackgrounding(() => mini.requestCheckpoint()) : undefined
 
@@ -92,7 +105,7 @@ export function bootOffline(params: URLSearchParams, name: string): OfflineBoot 
     start: () => { engineRunning = true; mini.start() },
     readMorgue: (filename) =>
       port.readFile?.(`${MORGUE_DIR}${filename}.txt`) ?? Promise.resolve(null),
-    dispose: () => { engineRunning = false; detachLifecycle?.(); mini.dispose() },
+    dispose,
   }
 }
 

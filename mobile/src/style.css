@@ -6876,3 +6876,10 @@ html.map-hold, html.map-hold * {
   padding-top: 1em;
 }
 .hns-loot-actions .lobby-btn-primary { flex: 1; }
+
+.hns-cloud-settings p { line-height: 1.5; }
+.hns-cloud-settings input { width: 100%; box-sizing: border-box; }
+.hns-cloud-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.hns-cloud-archive { border-top: 1px solid var(--border, #444); padding: 8px 0; }
+#cloud-error { color: var(--danger, #e99); overflow-wrap: anywhere; }
+#cloud-conflict-files { overflow-wrap: anywhere; padding-left: 20px; }

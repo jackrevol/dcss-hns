@@ -53,7 +53,9 @@ function isRegenerable(path: string): boolean {
 // traversal segments — the one guard shared by import validation and the
 // delete surface, so a hardening tweak lands everywhere at once.
 function isMountPath(path: string): boolean {
-  return path.startsWith(`${MOUNT}/`) && !path.split('/').includes('..')
+  return path.startsWith(`${MOUNT}/`) && !path.includes('\0')
+    && !path.includes('\\') && !path.endsWith('/')
+    && !path.slice(1).split('/').some(p => p === '..' || p === '.' || p === '')
 }
 
 // --- Pack format (pure) ------------------------------------------------------
@@ -83,7 +85,8 @@ export function packSave(files: SavedFile[], meta: SavePackMeta): Uint8Array {
 }
 
 export function unpackSave(bytes: ArrayBuffer | Uint8Array): { meta: SavePackMeta; files: SavedFile[] } {
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const view = bytes instanceof Uint8Array
+    ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : new Uint8Array(bytes)
   const headerLen = MAGIC.length + 4
   if (view.byteLength < headerLen) throw new Error('not a PocketZot save pack (too short)')
   if (new TextDecoder().decode(view.subarray(0, MAGIC.length)) !== MAGIC)
@@ -97,8 +100,10 @@ export function unpackSave(bytes: ArrayBuffer | Uint8Array): { meta: SavePackMet
   } catch {
     throw new Error('save pack manifest is not valid JSON')
   }
-  if (!Array.isArray(manifest.files)) throw new Error('save pack manifest has no file list')
+  if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.files)) throw new Error('save pack manifest has no file list')
+  const paths = new Set<string>()
   const files = manifest.files.map((raw): SavedFile => {
+    if (!raw || typeof raw !== 'object') throw new Error('save pack manifest entry malformed')
     const f = raw as { path?: unknown; mode?: unknown; mtimeMs?: unknown; offset?: unknown; size?: unknown }
     const { path, mode, mtimeMs, offset, size } = f
     if (typeof path !== 'string' || typeof offset !== 'number' || typeof size !== 'number')
@@ -106,8 +111,11 @@ export function unpackSave(bytes: ArrayBuffer | Uint8Array): { meta: SavePackMet
     // A crafted pack must not be able to plant keys the engine wouldn't own.
     if (!isMountPath(path))
       throw new Error(`save pack path outside ${MOUNT}: ${path}`)
+    if (paths.has(path)) throw new Error(`save pack duplicate path: ${path}`)
+    paths.add(path)
     const start = dataStart + offset
-    if (offset < 0 || size < 0 || start + size > view.byteLength)
+    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(size)
+        || offset < 0 || size < 0 || start + size > view.byteLength)
       throw new Error(`save pack truncated (${path})`)
     return {
       path,
@@ -119,6 +127,7 @@ export function unpackSave(bytes: ArrayBuffer | Uint8Array): { meta: SavePackMet
       data: view.slice(start, start + size),
     }
   })
+  validateSavedFiles(files)
   const meta: SavePackMeta = { exportedAt: String(manifest.exportedAt ?? '') }
   if (typeof manifest.build === 'string') meta.build = manifest.build
   return { meta, files }
@@ -369,4 +378,54 @@ export async function writeOfflineFiles(files: SavedFile[]): Promise<number> {
   } finally {
     db.close()
   }
+}
+
+// Validate the complete set before opening a write transaction. File/directory
+// collisions otherwise depend on manifest order and can corrupt the mount.
+export function validateSavedFiles(files: SavedFile[]): void {
+  const paths = new Set(files.map(f => f.path))
+  if (paths.size !== files.length) throw new Error('세이브에 중복 경로가 있습니다.')
+  for (const f of files) {
+    if (!isMountPath(f.path) || !(f.data instanceof Uint8Array)
+      || !Number.isInteger(f.mode) || (f.mode & 0o170000) !== 0o100000
+      || !Number.isFinite(f.mtimeMs) || Math.abs(f.mtimeMs) > 8.64e15)
+      throw new Error('세이브 파일 형식이 올바르지 않습니다.')
+    let parent = f.path
+    while ((parent = parent.slice(0, parent.lastIndexOf('/'))).length > MOUNT.length)
+      if (paths.has(parent)) throw new Error('세이브 파일과 폴더 경로가 충돌합니다.')
+  }
+}
+
+// Cloud snapshots include deletions (a finished character no longer has .cs).
+// Apply the complete non-cache file set in one IDBFS transaction, engine stopped.
+export async function replaceOfflineFiles(files: SavedFile[]): Promise<void> {
+  validateSavedFiles(files)
+  const wanted = new Set(files.map(f => f.path))
+  if (wanted.size !== files.length || files.some(f => !isMountPath(f.path) || isRegenerable(f.path)))
+    throw new Error('클라우드 저장 파일 경로가 올바르지 않습니다.')
+  const db = await openDb()
+  try {
+    const tx = db.transaction(STORE, 'readwrite')
+    const completion = txnDone(tx)
+    void completion.catch(() => {})
+    try {
+      const store = tx.objectStore(STORE)
+      const [keys, values] = await Promise.all([request(store.getAllKeys()), request(store.getAll())])
+      keys.forEach((key, i) => {
+        if (typeof key === 'string' && isMountPath(key) && !isRegenerable(key)
+          && contentsToBytes((values[i] as { contents?: unknown })?.contents) !== null && !wanted.has(key)) store.delete(key)
+      })
+      for (const f of files) {
+        let d = f.path
+        while ((d = d.slice(0, d.lastIndexOf('/'))).length >= MOUNT.length)
+          store.put({ timestamp: new Date(), mode: 0o40775 }, d)
+        store.put({ timestamp: new Date(f.mtimeMs), mode: f.mode, contents: f.data }, f.path)
+      }
+      await completion
+    } catch (error) {
+      try { tx.abort() } catch { /* already completed or aborted */ }
+      await completion.catch(() => {})
+      throw error
+    }
+  } finally { db.close() }
 }

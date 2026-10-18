@@ -1,3 +1,6 @@
+import { cloud, initializeCloud, refreshCloudAccount } from '../cloud/runtime'
+import { openCloudSettings } from './cloud-view'
+import { registerViewDispose } from './view-dispose'
 import { openLootSettings } from './loot-settings-view'
 // The offline "server" lobby — the on-device analog of the WebTiles lobby
 // (views/lobby.ts): same header shell, but the body manages local save slots
@@ -141,6 +144,14 @@ export function buildOfflineLobbyView(
         <div class="offline-device-row">
           <span class="offline-device-glyph" aria-hidden="true">${TRANSFER_ICON}</span>
           <span class="offline-device-lines">
+            <span class="offline-device-label">클라우드 세이브</span>
+            <span id="offline-cloud-status" class="offline-device-sub">오프라인 플레이 가능</span>
+          </span>
+          <button type="button" id="offline-cloud" class="offline-device-btn">설정</button>
+        </div>
+        <div class="offline-device-row">
+          <span class="offline-device-glyph" aria-hidden="true">${TRANSFER_ICON}</span>
+          <span class="offline-device-lines">
             <span class="offline-device-label">Backup</span>
             <span class="offline-device-sub">Saves, morgues, scores, and options</span>
           </span>
@@ -176,6 +187,7 @@ export function buildOfflineLobbyView(
   // One boot per mount: every path out of this view unmounts it, so a second
   // tap on any slot/start button would just double-boot the engine.
   let launched = false
+  let cloudEditing = false
   // The play gate (see the readiness section): offline play needs the whole
   // on-device set, so while it's incomplete every launch control runs the
   // download first and then continues into the game it was asked for. Null
@@ -186,7 +198,7 @@ export function buildOfflineLobbyView(
   view.querySelector('#lobby-back')!.addEventListener('click', onBack)
 
   const launch = (name: string): void => {
-    if (launched) return
+    if (launched || cloudEditing) return
     launched = true
     onPlay(name)
   }
@@ -684,6 +696,11 @@ export function buildOfflineLobbyView(
 
   function renderReadiness(r: Readiness): void {
     if (r.state === 'ready') {
+      if (r.bundled) {
+        setReadiness('ok', packName(r), '클라이언트에 포함됨 · 바로 플레이 가능')
+        renderGateNote(r)
+        return
+      }
       // Tiles before updates: an available update still plays, a missing
       // tiles half does not — and this row must never read "ready" while
       // gateOpen() is shut, which is exactly what it would do in the state
@@ -725,6 +742,11 @@ export function buildOfflineLobbyView(
         appendMeasuredSize('Installed', build)
       }
     } else if (r.state === 'not-cached') {
+      if (r.bundled) {
+        setReadiness('dim', packName(r), '브라우저에 게임 데이터 자동 준비 중')
+        renderGateNote(r)
+        return
+      }
       setReadiness('dim', packName(r), `Not installed · ${INSTALL_SIZE_LABEL}`, 'Install')
     } else if (r.state === 'offline-not-cached') {
       setReadiness('warn', packName(r), 'Not installed · connect once to download')
@@ -756,7 +778,7 @@ export function buildOfflineLobbyView(
   // throws 'cache storage unavailable' by construction).
   function gateOpen(): boolean {
     if (readiness === null) return false
-    return readiness.state === 'undeployed' || readiness.state === 'no-store'
+    return (readiness.state === 'not-cached' && !!readiness.bundled) || readiness.state === 'undeployed' || readiness.state === 'no-store'
       || canPlayOffline(readiness)
   }
 
@@ -855,16 +877,18 @@ export function buildOfflineLobbyView(
   // lobby is mounted. The editor writes only on Save (rc-editor.ts).
 
   view.querySelector('#offline-loot')!.addEventListener('click', () => {
-    if (launched || downloading) return
+    if (launched || downloading || cloud.state.phase === 'syncing') return
     void openLootSettings(showNotice, () => view.isConnected && !launched && !downloading)
       .catch((e: unknown) => showNotice(`설정을 열 수 없습니다: ${errMsg(e)}`, 'error'))
   })
 
   view.querySelector('#offline-rc')!.addEventListener('click', () => {
+    if (launched || cloud.state.phase === 'syncing') return
     void openRcEditor(showNotice).catch((e: unknown) => showNotice(`Could not open the options file: ${errMsg(e)}`, 'error'))
   })
 
   view.querySelector('#offline-import')!.addEventListener('click', () => {
+    if (launched || cloud.state.phase === 'syncing') return
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.pzsave'
@@ -874,6 +898,7 @@ export function buildOfflineLobbyView(
       void (async () => {
         try {
           const { meta, files } = unpackSave(await f.arrayBuffer())
+          if (launched || cloud.playing || cloud.state.phase === 'syncing') throw new Error('게임을 저장·종료하고 동기화가 끝난 뒤 복원하세요.')
           await writeOfflineFiles(files)
           // The refreshed slot list below is what shows *what* landed; the
           // notice just dates the pack it came from.
@@ -888,6 +913,33 @@ export function buildOfflineLobbyView(
       })()
     })
     input.click()
+  })
+
+  // Cloud downloads are explicit or follow game exit. A ready transition
+  // refreshes the file-backed lobby after a completed download.
+  const refreshCloudFiles = (): void => {
+    if (!view.isConnected || launched) return
+    void Promise.all([refreshSaves(), refreshRecords()]).catch(() => {})
+  }
+  const unsubscribeCloud = cloud.subscribe(state => {
+    view.querySelector('#offline-cloud-status')!.textContent = state.message
+    if (state.phase === 'ready') refreshCloudFiles()
+  })
+  const onBundled = (): void => { void refreshReadiness().catch(() => {}) }
+  window.addEventListener('hns-game-bundled', onBundled)
+  window.addEventListener('hns-cloud-restored', refreshCloudFiles)
+  registerViewDispose(view, () => {
+    unsubscribeCloud()
+    window.removeEventListener('hns-game-bundled', onBundled)
+    window.removeEventListener('hns-cloud-restored', refreshCloudFiles)
+  })
+  void initializeCloud().catch(() => {})
+  view.querySelector('#offline-cloud')!.addEventListener('click', () => {
+    if (launched || downloading || cloudEditing) return
+    cloudEditing = true
+    const settings = openCloudSettings(refreshCloudFiles)
+    void refreshCloudAccount().catch(() => {})
+    void settings.finally(() => { cloudEditing = false })
   })
 
   // Seed "New game"'s home from the slot records — a localStorage read that

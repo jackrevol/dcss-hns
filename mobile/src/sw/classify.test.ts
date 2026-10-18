@@ -92,9 +92,9 @@ describe('sw.js template contract', () => {
     expect(kill).toContain("'pz-shell-'")
   })
 
-  it('the SW never self-promotes; only the kill switch does', () => {
+  it('updates never skip waiting; a first installation may claim its initial client', () => {
     expect(template).not.toMatch(/\.skipWaiting\(/)
-    expect(template).not.toMatch(/\.claim\(/)
+    expect(template).toMatch(/if \(firstInstall\) await self\.clients\.claim\(/)
     const kill = readFileSync(resolve(dir, 'sw-kill.js'), 'utf8')
     expect(kill).toMatch(/\.skipWaiting\(/)
     expect(kill).toContain('unregister')

@@ -45,6 +45,7 @@ jobs:
           npm ci
           npm run typecheck
           npm test
+          npm run test:cloud-db
       - name: Install Emscripten 5.0.7
         run: |
           git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
@@ -59,6 +60,7 @@ jobs:
           npm run build
           npx playwright install --with-deps chromium
           npm run test:e2e
+          npm run test:bundled-web
       - name: Build Android APK
         run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
         working-directory: mobile/android

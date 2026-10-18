@@ -13,3 +13,6 @@ android/local.properties
 android/**/build/
 test-results/
 playwright-report/
+
+build/
+native/dist/

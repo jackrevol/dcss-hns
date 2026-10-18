@@ -5,7 +5,7 @@ import { isAndroidApp } from '../platform/android'
 
 export function registerServiceWorker(): void {
   // Every asset is in the APK; a SW cache could retain an older APK's shell.
-  if (isAndroidApp()) return
+  if (isAndroidApp() || window.HnsDesktop?.bundled) return
   if (import.meta.env.DEV) return
   if (!('serviceWorker' in navigator)) return
   if (new URLSearchParams(location.search).get('nosw') === '1') {
@@ -16,7 +16,14 @@ export function registerServiceWorker(): void {
     return
   }
   const register = () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      const notify = (): void => { window.dispatchEvent(new Event('hns-game-bundled')) }
+      const watch = (): void => { reg.installing?.addEventListener('statechange', () => {
+        if (reg.installing?.state === 'installed' || reg.waiting || reg.active) notify()
+      }) }
+      watch(); reg.addEventListener('updatefound', watch)
+      void navigator.serviceWorker.ready.then(notify)
+    }).catch((err) => {
       console.warn('[sw] registration failed', err)
     })
   }

@@ -399,7 +399,7 @@ export function buildLoginView(
         // game", a character), so the line under it reads as what that tap
         // costs. The lobby row is about the pack itself and says "Not
         // installed · 22 MB" there.
-        : r.state === 'not-cached' ? `${INSTALL_SIZE_LABEL} download`
+        : r.state === 'not-cached' ? (r.bundled ? '게임 데이터 자동 준비 중' : `${INSTALL_SIZE_LABEL} download`)
           // Same size, and the tap can't spend it yet — so the blocker
           // replaces the price rather than qualifying it.
           : r.state === 'offline-not-cached' ? 'Needs a connection once'
@@ -424,6 +424,9 @@ export function buildLoginView(
     void loadOfflineSlots().then(({ stems, chars }) => {
       if (view.isConnected) setCard(stems, chars)
     })
+    const refreshBundle = (): void => { void probeReadiness().then(r => { if(view.isConnected){readiness=r;applyReadiness()} }) }
+    window.addEventListener('hns-game-bundled',refreshBundle)
+    teardown.push(() => window.removeEventListener('hns-game-bundled',refreshBundle))
     void probeReadiness().then((r) => {
       if (!view.isConnected) return
       if (r.state === 'undeployed') {

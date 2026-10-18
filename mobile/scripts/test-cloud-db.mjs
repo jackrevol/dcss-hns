@@ -1,0 +1,46 @@
+import { PGlite } from '@electric-sql/pglite'
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
+import { readFileSync } from 'node:fs'
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+const db=new PGlite({extensions:{pgcrypto}})
+await db.exec('create role anon; create role authenticated;')
+const sql=readFileSync(new URL('../supabase/cloud-saves.sql',import.meta.url),'utf8')
+await db.exec(sql);await db.exec(sql)
+const call=async(name,args=[])=> (await db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) as value`,args)).rows[0].value
+const key=name=>createHash('sha256').update('DCSS-HNS-login-v1\0'+name+'\0test-password').digest('hex')
+const first='player_one',second='player_two',firstKey=key(first),secondKey=key(second)
+await db.exec('set role anon')
+assert.equal(await call('hns_signup',['Player_one',firstKey]),first)
+await assert.rejects(call('hns_signup',['PLAYER_ONE',firstKey]),/HNS_USERNAME_TAKEN/)
+await assert.rejects(call('hns_signup',['x@foo.com',firstKey]),/HNS_INVALID_CREDENTIALS/)
+await assert.rejects(call('hns_signup',['player_three','bad key']),/HNS_INVALID_CREDENTIALS/)
+assert.equal(await call('hns_login',['PLAYER_ONE',firstKey]),first)
+assert.equal(await call('hns_signup',[second,secondKey]),second)
+await assert.rejects(db.query('select * from public.hns_game_saves'),/permission denied/)
+await assert.rejects(call('hns_check_password',[first,firstKey]),/permission denied/)
+const emptyHash=createHash('sha256').update('').digest('hex')
+assert.equal(await call('hns_read_save',[first,firstKey]),'')
+await call('hns_write_save',[first,firstKey,Buffer.from('first save').toString('base64'),emptyHash])
+assert.equal(Buffer.from(await call('hns_read_save',[first,firstKey]),'base64').toString(),'first save')
+await assert.rejects(call('hns_write_save',[first,firstKey,'',emptyHash]),/HNS_SAVE_CHANGED/)
+await assert.rejects(call('hns_read_save',[first,secondKey]),/HNS_INVALID_CREDENTIALS/)
+await assert.rejects(call('hns_write_save',[first,secondKey,'',emptyHash]),/HNS_INVALID_CREDENTIALS/)
+await assert.rejects(call('hns_read_save',[first,null]),/HNS_INVALID_CREDENTIALS/)
+await assert.rejects(call('hns_read_save',['unknown_user',firstKey]),/HNS_INVALID_CREDENTIALS/)
+await assert.rejects(call('hns_write_save',[second,secondKey,null,emptyHash]),/Invalid save/)
+assert.equal(await call('hns_read_save',[second,secondKey]),'')
+// Failed attempts never lock an account; no sessions or counters are created.
+for(let i=0;i<6;i++)await assert.rejects(call('hns_login',[first,'0'.repeat(64)]),/HNS_INVALID_CREDENTIALS/)
+assert.equal(await call('hns_login',[first,firstKey]),first)
+await db.exec('reset role')
+const row=(await db.query('select * from public.hns_game_saves where id=$1',[first])).rows[0]
+assert.deepEqual(Object.keys(row).sort(),['id','password_hash','save'])
+assert.notEqual(row.password_hash,firstKey);assert.match(row.password_hash,/^\$2[aby]\$12\$/)
+const tables=(await db.query("select table_name from information_schema.tables where table_schema='public'")).rows.map(r=>r.table_name)
+assert.deepEqual(tables,['hns_game_saves'])
+await db.exec(sql)
+assert.equal((await db.query('select count(*)::int as n from public.hns_game_saves')).rows[0].n,2)
+assert.equal(Buffer.from((await db.query('select save from public.hns_game_saves where id=$1',[first])).rows[0].save).toString(),'first save')
+console.log('PASS: exactly ID/password hash/save, bcrypt, credential isolation, no sessions/attempt limits, direct access denial, CAS conflicts, repeatable migration')
+await db.close()

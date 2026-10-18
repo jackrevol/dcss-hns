@@ -1,3 +1,4 @@
+import { bundledGameVersion } from './bundled-game'
 // Dedicated Worker hosting the Emscripten DCSS engine. Thin by design: all
 // protocol logic lives in mini-server.ts on the main thread; this shell only
 // moves strings across the thread boundary and loads the engine artifact.
@@ -260,7 +261,8 @@ const workerLog = (text: string): void => post({ type: 'log', text })
 // round-trip we otherwise skip) check the deploy, and send a skewed device
 // to the lobby's Update rather than mixing builds behind its back.
 async function openArtifactCache(jspi: boolean): Promise<Cache | null> {
-  const { engine } = await openOfflineStores(null, workerLog)
+  const included = await bundledGameVersion()
+  const { engine } = await openOfflineStores(included, workerLog)
   if (engine && !await bootArtifactsCached(engine, jspi)) {
     const [stored, deploy] = await Promise.all([cachedEngineBuild(engine), fetchVersion()])
     if (deploy.state === 'ok' && stored !== undefined && stored !== deploy.build)
@@ -530,7 +532,7 @@ async function start(name: string, jspi: boolean): Promise<void> {
   // the readiness marker, so an organic online boot counts as "downloaded"
   // on the readiness surface. Verification matters: fetchArtifact swallows
   // quota failures on cache.put, so fetch-success alone proves nothing.
-  void markEngineSetComplete(cache, jspi).then((complete) => {
+  void bundledGameVersion().then(game => game ? true : markEngineSetComplete(cache, jspi)).then((complete) => {
     if (!complete) workerLog('artifact set incomplete after boot (storage quota?) — not marked offline-ready')
   }).catch((e: unknown) => {
     // Must not escape: an unhandled rejection here reaches the crash net

@@ -1,3 +1,4 @@
+import { beginCloudGame, endCloudGame } from './cloud/runtime'
 import { WsConnection, type GameConnection } from './ws/connection'
 import type { GameExit } from './ws/types'
 import { buildLoginView } from './views/login'
@@ -23,6 +24,7 @@ let root: HTMLElement
 let currentUsername = ''
 let currentIsGuest = false
 let resumeActive = false
+let offlineLaunching = false
 
 export function initApp(appEl: HTMLElement): void {
   root = appEl
@@ -113,57 +115,73 @@ function showOfflineLobby(exit?: GameExit): void {
 // header). Exit returns to the offline lobby, which shows the same
 // end-of-game dialog as the online one.
 async function showOfflineGame(name: string): Promise<void> {
-  let bootMod: typeof import('./offline/boot')
+  if (offlineLaunching) return
+  offlineLaunching = true
   try {
-    bootMod = await import('./offline/boot')
-  } catch (e) {
-    // The one production way this import fails is a stale shell whose
-    // boot-chunk hash rotated off the deploy — heal with the offline
-    // context pinned, so the reload lands back in the offline lobby
-    // rather than falling into login/auto-resume (the engine-port worker
-    // path passes the same param for the same reason).
-    if (staleShellReloadOnce({ offline: '1' })) return
-    showFatal(`Offline engine failed to load: ${String(e)}`)
-    return
-  }
-  const { bootOffline } = bootMod
-  const params = new URLSearchParams(location.search)
-  const boot = bootOffline(params, name)
-  // Fixture replays get no gameId, keeping avatar/crypt writes disabled —
-  // same reason boot.ts excludes them from the slot-record tracker: a golden
-  // capture's character isn't yours and must not mint a phantom shelf entry.
-  const gameId = params.get('engine') === 'fake' ? '' : OFFLINE_GAME_ID
-  if (gameId) {
-    // J gates the Asyncify retirement (dev-material/jspi-migration.md).
-    count('play-offline', { ...gameStartFlags(), jspi: jspiSupported() })
-    setPref('loginOfflineOpen', null)  // playing offline outranks an old collapse; back to auto
-  }
-  state = 'game'
-  conn = boot.conn
-  currentUsername = name
-  currentIsGuest = false
-  setView(buildGameView({
-    conn: boot.conn,
-    onLobby: (exit) => {
-      boot.dispose()
-      conn = null
-      // Drop the ?offline flag with the session: a later reload (e.g. the
-      // iOS eviction path mid-online-game) must not boot back into offline.
-      // Only that flag — the dev params (?engine=fake, ?fixture, ?perf) must
-      // survive, or the next game this session boots a different engine
-      // than the one under test.
-      const p = new URLSearchParams(location.search)
-      p.delete('offline')
-      const qs = p.toString()
-      history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''))
-      showOfflineLobby(exit)
-    },
-    username: currentUsername,
-    gameId,
-    guest: currentIsGuest,
-    readMorgue: (filename) => boot.readMorgue(filename),
-  }))
-  boot.start()
+    let bootMod: typeof import('./offline/boot')
+    try {
+      bootMod = await import('./offline/boot')
+    } catch (e) {
+      // The one production way this import fails is a stale shell whose
+      // boot-chunk hash rotated off the deploy — heal with the offline
+      // context pinned, so the reload lands back in the offline lobby
+      // rather than falling into login/auto-resume (the engine-port worker
+      // path passes the same param for the same reason).
+      if (staleShellReloadOnce({ offline: '1' })) return
+      showFatal(`Offline engine failed to load: ${String(e)}`)
+      return
+    }
+    const { bootOffline } = bootMod
+    const params = new URLSearchParams(location.search)
+    let boot: ReturnType<typeof bootOffline>
+    const real = params.get('engine') !== 'fake'
+    let ownsGame = false
+    try {
+      if (real) { await beginCloudGame(); ownsGame = true }
+      // Navigation can replace the lobby while the local ownership lock settles.
+      if (real && state !== 'lobby') { endCloudGame(); return }
+      boot = bootOffline(params, name)
+    } catch (e) {
+      if (ownsGame) endCloudGame()
+      showOfflineLobby({ reason: 'error', message: e instanceof Error ? e.message : String(e) })
+      return
+    }
+    // Fixture replays get no gameId, keeping avatar/crypt writes disabled —
+    // same reason boot.ts excludes them from the slot-record tracker: a golden
+    // capture's character isn't yours and must not mint a phantom shelf entry.
+    const gameId = params.get('engine') === 'fake' ? '' : OFFLINE_GAME_ID
+    if (gameId) {
+      // J gates the Asyncify retirement (dev-material/jspi-migration.md).
+      count('play-offline', { ...gameStartFlags(), jspi: jspiSupported() })
+      setPref('loginOfflineOpen', null)  // playing offline outranks an old collapse; back to auto
+    }
+    state = 'game'
+    conn = boot.conn
+    currentUsername = name
+    currentIsGuest = false
+    setView(buildGameView({
+      conn: boot.conn,
+      onLobby: (exit) => {
+        boot.dispose()
+        conn = null
+        // Drop the ?offline flag with the session: a later reload (e.g. the
+        // iOS eviction path mid-online-game) must not boot back into offline.
+        // Only that flag — the dev params (?engine=fake, ?fixture, ?perf) must
+        // survive, or the next game this session boots a different engine
+        // than the one under test.
+        const p = new URLSearchParams(location.search)
+        p.delete('offline')
+        const qs = p.toString()
+        history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''))
+        showOfflineLobby(exit)
+      },
+      username: currentUsername,
+      gameId,
+      guest: currentIsGuest,
+      readMorgue: (filename) => boot.readMorgue(filename),
+    }))
+    boot.start()
+  } finally { offlineLaunching = false }
 }
 
 function showLogin(notice?: string, prefill?: { wsUrl: string; username: string }): void {

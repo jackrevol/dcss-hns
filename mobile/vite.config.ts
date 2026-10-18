@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitest/config'
 import type { Plugin } from 'vite'
 import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gunzipSync } from 'node:zlib'
 import { PRECACHE_EXTRAS } from './src/sw/classify.js'
 import { bakeCryptStrip } from './src/build/crypt-strip.js'
 import { STRIP } from './src/views/crypt-room-layout'
@@ -48,6 +49,29 @@ function swPrecache(): Plugin {
         .filter((name) => name.startsWith('assets/'))
         .map((name) => `/${name}`)
         .sort()
+      // Ship the engine with the web client too. Hash each fixed-path game
+      // asset so a mid-deploy install cannot cache mixed engine generations.
+      const versionPath = resolve(outDir, 'offline/version.json')
+      const game = existsSync(versionPath) ? JSON.parse(readFileSync(versionPath, 'utf8')) : null
+      const gameAssets: { path: string; hash: string; decodedHash?: string }[] = []
+      const visit = (path: string): void => {
+        for (const entry of readdirSync(resolve(outDir, path), { withFileTypes: true })) {
+          const child = path + '/' + entry.name
+          if (entry.isDirectory()) visit(child)
+          else if (/\.(js|wasm|gz|json|bin|png)$/.test(child)) {
+            const bytes = readFileSync(resolve(outDir, child))
+            gameAssets.push({ path: '/' + child,
+              hash: createHash('sha256').update(bytes).digest('hex'),
+              // Hosts may serve .gz with Content-Encoding: gzip. Fetch then
+              // exposes decoded bytes; both representations belong to this build.
+              ...(child.endsWith('.gz') ? { decodedHash: createHash('sha256').update(gunzipSync(bytes)).digest('hex') } : {}) })
+          }
+        }
+      }
+      if (game?.hns === true) {
+        writeFileSync(versionPath, JSON.stringify({ ...game, clientBundle: true }))
+        visit('offline'); visit('gamedata/local')
+      }
       const shellHtml = readFileSync(resolve(outDir, 'index.html'), 'utf8')
       const shellHeaders = {
         ...parseRootHeaders(),
@@ -67,6 +91,7 @@ function swPrecache(): Plugin {
         .update(JSON.stringify(shellHeaders))
         .update(classifySrc)
         .update(template)
+        .update(JSON.stringify(gameAssets))
       for (const path of assets) {
         hash.update(path).update(readFileSync(resolve(outDir, path.slice(1))))
       }
@@ -75,6 +100,7 @@ function swPrecache(): Plugin {
         shellHtml,
         shellHeaders,
         assets,
+        game: game?.hns === true ? { ...game, assets: gameAssets } : null,
       }
       // Function replacements: the payloads contain `$`-sequences that
       // String.replace would otherwise expand.

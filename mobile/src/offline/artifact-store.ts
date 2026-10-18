@@ -1,3 +1,4 @@
+import { bundledGameResponse, bundledGameVersion } from './bundled-game'
 // One source of truth for the offline artifact stores: cache names, paths,
 // version handling, cache-first fetch, gunzip, set-complete markers, the
 // readiness probe, and the explicit-download prefetch. Shared by
@@ -92,7 +93,7 @@ export const newStats = (): FetchStats => ({ cacheHits: 0, netFetches: 0, netByt
 export type VersionInfo =
   // `version` is the game version the pack was built from (CRAWL_VERSION_SHORT,
   // e.g. "0.34.1" or "0.35-a0") — display-only, absent on older installs.
-  | { state: 'ok'; build: string; version?: string }
+  | { state: 'ok'; build: string; version?: string; bundled?: true }
   // Confirmed 200-but-not-json or 404: this deploy ships no artifacts.
   | { state: 'undeployed' }
   // Network failure — offline, or the server is unreachable.
@@ -100,6 +101,8 @@ export type VersionInfo =
 
 export async function fetchVersion(timeoutMs = 4000): Promise<VersionInfo> {
   try {
+    const bundled = await bundledGameVersion()
+    if (bundled) return {state:'ok',build:bundled.build,version:bundled.version,bundled:true}
     const r = await fetch('/offline/version.json', {
       cache: 'no-cache',
       signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(timeoutMs) : undefined,
@@ -109,7 +112,7 @@ export async function fetchVersion(timeoutMs = 4000): Promise<VersionInfo> {
       const build = String(json.build ?? '')
       if (build) {
         const version = typeof json.version === 'string' && json.version !== '' ? json.version : undefined
-        return version !== undefined ? { state: 'ok', build, version } : { state: 'ok', build }
+        return { state: 'ok', build, ...(version ? {version} : {}), ...((json as {clientBundle?:boolean}).clientBundle ? {bundled:true as const} : {}) }
       }
     }
     return { state: 'undeployed' }
@@ -215,7 +218,7 @@ async function matchOrFetch(
   paths: string[],
 ): Promise<{ res: Response; from: 'cache' | 'net' }> {
   for (const p of paths) {
-    const hit = cache && await cache.match(p)
+    const hit = (cache && await cache.match(p)) || await bundledGameResponse(p)
     if (hit) return { res: hit, from: 'cache' }
   }
   let lastStatus = 0
@@ -519,10 +522,10 @@ export type Readiness =
   // source repo tags releases by), display-only, for bug reports: it names
   // what this device actually runs, which a pending update makes different
   // from the deploy's.
-  | { state: 'ready'; tiles: boolean; update: boolean; deploy: 'ok' | 'undeployed' | 'unreachable'; version?: string; updateVersion?: string; build?: string }
+  | { state: 'ready'; tiles: boolean; update: boolean; deploy: 'ok' | 'undeployed' | 'unreachable'; version?: string; updateVersion?: string; build?: string; bundled?: true }
   // Online, deploy confirmed, nothing (complete) cached — downloadable.
   // version labels the downloadable pack when the deploy declares it.
-  | { state: 'not-cached'; version?: string }
+  | { state: 'not-cached'; version?: string; bundled?: true }
   // This deploy ships no artifacts — hide the offline surfaces.
   | { state: 'undeployed' }
   // No network and no cached set: can't play, can't download right now.
@@ -552,6 +555,8 @@ export const canPlayOffline = (r: Readiness): boolean => r.state === 'ready' && 
 // the wording lives in the views, next to the state each one shows.
 
 export async function probeReadiness(): Promise<Readiness> {
+  const included = await bundledGameVersion()
+  if (included) return {state:'ready',tiles:true,update:false,deploy:'ok',build:included.build,version:included.version,bundled:true}
   // Read-only on purpose: rendering a screen must never clear a cache
   // (openVersionedCache mutates on build change; only boot/download do that).
   const [engineMarker, tilesReady, version] = await Promise.all([
@@ -590,6 +595,7 @@ export async function probeReadiness(): Promise<Readiness> {
     return r
   }
   if (version.state === 'ok') {
+    if (version.bundled) return {state:'not-cached',version:version.version,bundled:true}
     return version.version !== undefined
       ? { state: 'not-cached', version: version.version }
       : { state: 'not-cached' }

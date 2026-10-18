@@ -52,6 +52,19 @@ self.addEventListener('install', (event) => {
         if (!response.ok) throw new Error('precache ' + path + ': HTTP ' + response.status)
         await cache.put(path, response)
       }))
+      if (PRECACHE.game) {
+        await Promise.all(PRECACHE.game.assets.map(async asset => {
+          const response = await fetch(asset.path + '?pz-game=' + asset.hash, {cache:'reload'})
+          if (!response.ok) throw new Error('bundled game: ' + asset.path)
+          const bytes = await response.clone().arrayBuffer()
+          const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
+            n => n.toString(16).padStart(2,'0')).join('')
+          if (hash !== asset.hash && hash !== asset.decodedHash) throw new Error('bundled game changed during install: ' + asset.path)
+          await cache.put(asset.path, response)
+        }))
+        await cache.put('/offline/__bundled', new Response(JSON.stringify(PRECACHE.game),
+          {headers:{'Content-Type':'application/json'}}))
+      }
     } catch (err) {
       // All-or-nothing at the storage layer too: without this, a failed
       // precache leaves a partial residue cache behind (unservable, but
@@ -70,14 +83,22 @@ self.addEventListener('activate', (event) => {
     // Old shell generations are deleted only here, after their last client
     // is gone. pz-offline-artifacts and pz-gamedata-* are never touched.
     const names = await caches.keys()
+    const firstInstall = !names.some(name => name.startsWith('pz-shell-') && name !== CACHE_NAME)
     await Promise.all(names
       .filter((name) => name.startsWith('pz-shell-') && name !== CACHE_NAME)
       .map((name) => caches.delete(name)))
+    if (firstInstall) await self.clients.claim()
   })())
 })
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
+  if (PRECACHE.game && event.request.method === 'GET' && url.origin === self.location.origin
+    && (url.pathname === '/offline/__bundled' || PRECACHE.game.assets.some(asset => asset.path === url.pathname))) {
+    event.respondWith(caches.match(url.origin + url.pathname, {cacheName:CACHE_NAME,ignoreVary:true})
+      .then(cached => cached || fetch(event.request)))
+    return
+  }
   const strategy = classify(url, {
     method: event.request.method,
     mode: event.request.mode,
