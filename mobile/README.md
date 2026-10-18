@@ -78,13 +78,16 @@ Android 앱, macOS 독립 앱, Windows/Linux/macOS 브라우저는 같은 계정
 세 열만 저장하는 구조, bcrypt, 잘못된 비밀번호 차단, 사용자 격리,
 동시 저장 충돌, 제한 없는 반복 로그인, SQL 재실행을 검증합니다.
 
-## macOS 독립 앱
+## Windows/Linux/macOS 독립 앱
 
-`npm run build:desktop`은 엔진과 UI를 포함한 `.app`과 ZIP을 생성합니다.
+`npm run build:desktop`은 엔진과 UI를 포함한 독립 앱과 배포 압축 파일을 생성합니다.
 현재 호스트의 플랫폼/CPU를 기본으로 사용하며, `HNS_DESKTOP_PLATFORM`
 (`darwin`, `win32`, `linux`), `HNS_DESKTOP_ARCH`로 대상을 지정할 수 있습니다.
+릴리즈에서는 각 플랫폼의 호스트에서 패키징하고 오프라인 플레이를 검증합니다.
 macOS Apple Silicon 결과는 `build/desktop/DCSS-HNS-mac-arm64.zip`입니다.
-압축을 풀고 `DCSS HNS.app`을 실행합니다. 별도 웹 서버나 Node.js 없이
+Windows x64는 `build/desktop/DCSS-HNS-windows-x64.zip`, Linux x64는
+`build/desktop/DCSS-HNS-linux-x64.tar.gz`입니다. 압축을 풀고 플랫폼에 맞는
+`DCSS HNS.app`, `DCSS HNS.exe`, `DCSS HNS`를 실행합니다. 별도 웹 서버나 Node.js 없이
 오프라인 플레이와 앱 내 클라우드 동기화를 사용할 수 있습니다.
 게임 엔진·타일·초기 데이터가 앱에 미리 포함되어 별도 다운로드 버튼 없이
 바로 플레이할 수 있습니다. 로그인과 세이브는 앱 전용 사용자 데이터 폴더에 보관합니다.
@@ -234,6 +237,15 @@ GitHub Actions의 **Mobile Android** 워크플로는 UI 검사, 현재 HNS 엔�
 컴파일, 브라우저 통합 테스트, APK 빌드를 실행하고 APK와 전체 소스 스냅샷을
 artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lua·폰트
 소스를 포함한 배포용 소스 압축 파일을 생성합니다.
+
+**[Platform Release](../.github/workflows/release.yml)**는 릴리즈 게시 시 이
+워크플로를 재사용하고, 검증한 동일 UI·WASM 엔진을 Windows x64, Linux x64,
+macOS Intel/Apple Silicon 앱으로 패키징합니다. 모든 플랫폼의 빌드와
+오프라인 플레이 검증이 성공하면 APK, 데스크톱 압축 파일 4개, 전체 대응 소스와
+SHA-256 체크섬을 해당 릴리즈에 첨부합니다. 수동 실행의 `tag`는 이미 존재하는
+릴리즈를 지정하며, 재실행하면 같은 이름의 첨부 파일을 교체합니다.
+기존 Android 전용 첫 릴리즈 태그에는 데스크톱 빌드 스크립트가 없어
+이 자동화를 사용하려면 새 스크립트가 포함된 태그가 필요합니다.
 
 ## 라이선스
 

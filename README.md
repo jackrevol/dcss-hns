@@ -7,6 +7,25 @@
 돌아갈 수 있습니다. [PocketZot](https://github.com/pocketzot/pocketzot)의 모바일
 UI를 적용한 Android 앱으로 인터넷 없이 플레이할 수 있습니다.
 
+## 플랫폼별 릴리즈 파일
+
+새 릴리즈를 게시하면 **[Platform Release](.github/workflows/release.yml)**가
+같은 태그의 엔진과 UI를 빌드하여 아래 파일을 자동 첨부합니다.
+
+| 플랫폼 | 파일 이름 (`<tag>`는 릴리즈 태그) | 실행 방법 |
+| --- | --- | --- |
+| Android | `dcss-hns-<tag>-android-debug.apk` | APK 설치 |
+| Windows x64 | `dcss-hns-<tag>-windows-x64.zip` | 압축 해제 후 `DCSS HNS.exe` 실행 |
+| Linux x64 | `dcss-hns-<tag>-linux-x64.tar.gz` | 압축 해제 후 `DCSS HNS` 실행 |
+| macOS Intel | `dcss-hns-<tag>-macos-x64.zip` | 압축 해제 후 `DCSS HNS.app` 실행 |
+| macOS Apple Silicon | `dcss-hns-<tag>-macos-arm64.zip` | 압축 해제 후 `DCSS HNS.app` 실행 |
+
+전체 대응 소스(`dcss-hns-source-*.tar.gz`)와 `SHA256SUMS.txt`도 함께 제공합니다.
+데스크톱 앱은 엔진과 게임 데이터를 포함하며 별도 Node.js 설치 없이 실행됩니다.
+기존 릴리즈에 다시 첨부하려면 Actions의 **Platform Release → Run workflow**에서
+해당 릴리즈의 태그를 지정합니다. 대상 태그에는 데스크톱 앱과 릴리즈 빌드
+스크립트가 포함되어 있어야 합니다.
+
 ## Android 다운로드 및 실행
 
 **[최신 릴리스](https://github.com/jackrevol/dcss-hns/releases/latest)** ·

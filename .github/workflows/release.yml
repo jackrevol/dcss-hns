@@ -1,0 +1,143 @@
+name: Platform Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and attach files to
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release_ref:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+      - name: Resolve the existing release to an exact commit
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          gh release view "$RELEASE_TAG" --json tagName --jq .tagName
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: release_ref
+    uses: ./.github/workflows/mobile.yml
+    with:
+      ref: ${{ needs.release_ref.outputs.sha }}
+
+  desktop:
+    needs: [release_ref, android]
+    name: Desktop ${{ matrix.platform }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            platform: win32
+            arch: x64
+            executable: DCSS HNS.exe
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+            executable: DCSS HNS
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+            executable: DCSS HNS.app/Contents/MacOS/DCSS HNS
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+            executable: DCSS HNS.app/Contents/MacOS/DCSS HNS
+    defaults:
+      run:
+        working-directory: mobile
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release_ref.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: dcss-hns-client-input
+          path: mobile
+      - name: Install desktop dependencies
+        run: npm ci
+      # Use the shared dist verbatim; rebuilding the UI here would omit the engine.
+      - name: Package desktop app and archive
+        env:
+          HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
+          HNS_DESKTOP_ARCH: ${{ matrix.arch }}
+        run: node scripts/build-desktop.mjs
+      - name: Install Linux runtime dependencies
+        if: runner.os == 'Linux'
+        run: npx playwright install-deps chromium
+      - name: Verify desktop offline play
+        env:
+          HNS_DESKTOP_EXECUTABLE: ${{ github.workspace }}/mobile/build/desktop/DCSS HNS-${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.executable }}
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a npm run test:desktop
+          else
+            npm run test:desktop
+          fi
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: dcss-hns-desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            mobile/build/desktop/*.zip
+            mobile/build/desktop/*.tar.gz
+          if-no-files-found: error
+
+  upload:
+    needs: [release_ref, android, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release_ref.outputs.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dcss-hns-desktop-*
+          path: artifacts/desktop
+      - uses: actions/download-artifact@v4
+        with:
+          name: dcss-hns-mobile-android
+          path: artifacts/android
+      - name: Collect platform files, corresponding source and checksums
+        env:
+          RELEASE_TAG: ${{ needs.release_ref.outputs.tag }}
+        run: python3 .github/scripts/collect-release.py artifacts release-assets
+      - name: Attach files to the existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release_ref.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber

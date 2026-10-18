@@ -5,7 +5,8 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 const root=fileURLToPath(new URL('..',import.meta.url)),profile=mkdtempSync(tmpdir()+'/hns-desktop-test-')
-const instance=await electron.launch({args:[resolve(root,'build/desktop-source')],env:{...process.env,HNS_DESKTOP_DATA:profile}})
+const executablePath=process.env.HNS_DESKTOP_EXECUTABLE
+const instance=await electron.launch({executablePath,args:executablePath?[]:[resolve(root,'build/desktop-source')],env:{...process.env,HNS_DESKTOP_DATA:profile}})
 try {
   const page=await instance.firstWindow()
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(60_000)
