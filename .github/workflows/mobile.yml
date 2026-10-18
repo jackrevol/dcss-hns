@@ -31,6 +31,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          # The retired "tools" package is still a default in setup-android v3.
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install host build dependencies
         run: |
           sudo apt-get update
