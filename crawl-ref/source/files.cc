@@ -409,6 +409,18 @@ static bool _create_dirs(const string &dir)
         if (i == 0 && dir.size() && dir[0] == FILE_SEPARATOR)
             path = FILE_SEPARATOR + path;
 
+#ifdef TARGET_OS_WINDOWS
+        // 다른 드라이브에서 실행할 때 "C:"를 폴더로 만들면 실패합니다.
+        // 절대 경로의 드라이브 루트는 확인만 하고 하위 폴더부터 생성합니다.
+        if (i == 0 && path.size() == 2 && path[1] == ':'
+            && dir.size() > 2 && dir[2] == FILE_SEPARATOR)
+        {
+            path += FILE_SEPARATOR;
+            if (!dir_exists(path))
+                return false;
+            continue;
+        }
+#endif
         if (!_create_directory(path.c_str()))
             return false;
 

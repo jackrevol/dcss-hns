@@ -36,6 +36,9 @@ try {
   assert.match(version, /-DUSE_SDL\b/)
   assert.doesNotMatch(version, /-DUSE_TILE_WEB\b/)
   run(['-headless', '-builddb'])
+  for (const directory of ['saves/db', 'morgue']) {
+    assert.ok(existsSync(resolve(profile, directory)), `Native profile directory was not initialized: ${directory}`)
+  }
   console.log('PASS: original SDL tiles client, HNS engine, packaged tiles/fonts/settings, offline database initialization')
 } finally {
   rmSync(profile, { recursive: true, force: true })
