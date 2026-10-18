@@ -10,6 +10,20 @@ Android 앱에는 **이 저장소에서 빌드한 HNS 엔진과 타일**이 포�
 기존 SDL 앱의 세이브가 자동으로 이전되지는 않습니다.
 공개 WebTiles 서버에 접속하면 해당 서버의 게임 규칙을 사용합니다.
 
+## APK 설치 및 실행
+
+**[최신 Android 릴리스](https://github.com/jackrevol/dcss-hns/releases/latest)**에서
+`.apk` 파일을 다운로드하여 설치합니다. 현재 배포 파일은 디버그 서명 APK이며,
+전체 대응 소스와 `SHA256SUMS.txt`도 함께 제공합니다.
+
+앱을 열고 **New game**에서 캐릭터를 만듭니다. 첫 실행 시 APK 내부의 게임
+데이터를 준비하며 인터넷 연결은 필요하지 않습니다. 세이브는 오프라인 로비의
+**Backup → Export**로 `.pzsave`에 보관하고, **Import**로 복원합니다.
+
+Android 6(API 23) 이상과 최신 Android System WebView가 필요합니다.
+Android 뒤로 가기는 Escape 키로 동작합니다. 앱 업데이트 시 세이브는
+유지되며, 앱 삭제·데이터 초기화 전에는 백업을 내보내세요.
+
 ## 아이템 드랍 설정
 
 오프라인 로비에서 **아이템 드랍 → 설정**을 엽니다. 바닥 생성량·품질 배수,
@@ -44,6 +58,15 @@ macOS에서는 Xcode Command Line Tools와 Homebrew의 `pkgconf libpng sqlite`,
 이 저장소에 고정된 서브모듈을 초기화합니다.
 
 ## 엔진과 UI 빌드
+
+릴리스의 전체 대응 소스를 사용하거나 해당 태그를 체크아웃합니다.
+첫 모바일 릴리스의 소스를 가져오는 예입니다.
+
+```sh
+git clone --depth 1 --branch v0.35-a0-hns-mobile.1 --recurse-submodules \
+  https://github.com/jackrevol/dcss-hns.git
+cd dcss-hns
+```
 
 ```sh
 source /path/to/emsdk/emsdk_env.sh

@@ -1,21 +1,80 @@
 [![Build Status](https://github.com/jackrevol/dcss-hns/workflows/Build/badge.svg)](https://github.com/jackrevol/dcss-hns/actions/)
 
-# Dungeon Crawl Stone Soup
+# DCSS HNS
 
-## DCSS HNS 포크
+[Dungeon Crawl Stone Soup](https://github.com/crawl/crawl)의 HNS 포크입니다.
+일반 바닥 아이템 보상을 조절하고, 사망하면 마지막 층 진입 시점으로
+돌아갈 수 있습니다. [PocketZot](https://github.com/pocketzot/pocketzot)의 모바일
+UI를 적용한 Android 앱으로 인터넷 없이 플레이할 수 있습니다.
 
-일반 던전 바닥 아이템의 기본 생성 횟수를 **3배**, 품질 인자(`item_level`)를
-**2배**로 높이고, 탐험 중 무작위로 발생하는 **던전의 악의** 이벤트를 제거한
-포크입니다. 사망 시 마지막 층 진입 시점으로 돌아가는 무제한 부활도 지원합니다.
-자세한 적용 범위와 빌드 방법은 [포크 안내](crawl-ref/docs/hns.md)를
-참고하세요.
+## Android 다운로드 및 실행
 
-모바일에서는 [PocketZot UI와 Android APK 빌드](mobile/README.md)를 사용할
-수 있습니다. HNS 엔진을 앱에 포함하여 오프라인으로 플레이하며, 터치 조작,
-ASCII/타일 전환, 캐릭터별 저장과 세이브 백업·복원을 지원합니다.
-오프라인 로비의 **아이템 드랍 → 설정**에서 생성량·품질·아티팩트 확률,
-골드·소모품 수량을 조절할 수 있습니다. 적용 대상은 기존 HNS와 같은
-일반 바닥 아이템입니다.
+**[최신 릴리스](https://github.com/jackrevol/dcss-hns/releases/latest)** ·
+**[Android APK 다운로드](https://github.com/jackrevol/dcss-hns/releases/download/v0.35-a0-hns-mobile.1/dcss-hns-mobile-0.35-a0-hns-mobile.1-debug.apk)**
+
+1. 릴리스의 `.apk` 파일을 Android 기기에 다운로드하고 설치합니다.
+2. 앱을 열고 **New game**에서 캐릭터를 만듭니다. 첫 실행에 필요한 엔진과
+   타일은 APK에 포함되어 있어 인터넷 연결이 필요하지 않습니다.
+3. 세이브를 옮기거나 보관하려면 오프라인 로비의 **Backup → Export**로
+   `.pzsave`를 저장하고, **Import**로 복원합니다.
+
+Android 6(API 23) 이상과 최신 Android System WebView가 필요합니다.
+현재 릴리스는 **디버그 서명 APK**이며, 전체 대응 소스와 SHA-256 체크섬도
+릴리스에 첨부합니다. 앱 ID는 `io.github.jackrevol.dcsshns`입니다.
+기존 SDL Android 앱과 별도로 설치되며, 세이브를 자동으로 가져오지 않습니다.
+앱 업데이트 시 세이브는 유지되지만 앱 삭제·데이터 초기화 시에는 사라집니다.
+
+## HNS 기능
+
+- **바닥 아이템 보상 조절:** 기본 생성량 3배, 품질 인자 2배.
+- **층 진입 시점으로 무제한 부활:** 사망 확인창에서 부활을 선택하면
+  캐릭터와 던전 상태를 마지막 층 진입 시점으로 되돌립니다.
+- **던전의 악의 제거:** 탐험 중 무작위로 발생하던 낙하·강제 순간이동·경보를
+  제거합니다. 맵의 함정과 몬스터 능력은 기존 규칙을 따릅니다.
+- **모바일 조작:** 세로 화면, 터치 방향키와 상황별 명령, ASCII/타일 전환,
+  캐릭터별 저장, 앱 전환 시 저장, Android 파일 선택창을 통한 백업·복원.
+
+HNS 규칙은 앱의 오프라인 게임에 적용합니다. 공개 WebTiles 서버에 접속하면
+해당 서버의 게임 규칙을 사용합니다.
+
+## 아이템 드랍 설정
+
+오프라인 로비의 **아이템 드랍 → 설정**에서 변경합니다.
+
+| 설정 | 기본값 | 범위 |
+| --- | ---: | ---: |
+| 바닥 아이템 생성량 | 3배 | 0–10배 |
+| 아이템 품질 인자 | 2배 | 0–10배 |
+| 최소 품질 단계 | 0 | 0–50 |
+| 우수 아이템 추가 확률 | 0% | 0–100% |
+| 랜덤 아티팩트 추가 확률 | 0% | 0–100% |
+| 골드 묶음 수량 | 1배 | 0.01–10배 |
+| 소모품 묶음 수량 | 1배 | 0.01–10배 |
+
+**HNS 기본값**과 **원본 드랍값** 버튼으로 기본 설정을 불러올 수 있습니다.
+일반 바닥 아이템만 대상으로 하며, 몬스터 소지품·상점·신의 선물·맵 보상은
+기존 규칙을 따릅니다. 변경값은 저장 후 게임을 시작·재개하면 새로 생성하는
+아이템부터 적용합니다. 이미 생성된 층의 아이템은 바뀌지 않습니다.
+설정은 기기 내 모든 오프라인 캐릭터가 공유합니다.
+
+품질 배수는 강화 수치 자체의 배수가 아닙니다. D:1의 기본 품질 인자 0을
+높이려면 **최소 품질 단계**를 설정하세요. 아티팩트 추가 확률은
+무기·방어구·장신구·탈리스만에 적용하며, 불가능한 종류는 우수 아이템으로
+대체합니다.
+
+## 소스와 빌드
+
+- [HNS 규칙 및 네이티브 빌드](crawl-ref/docs/hns.md): `init.txt` 옵션과 부활 규칙.
+- [모바일 개발 및 Android 빌드](mobile/README.md): Emscripten 엔진, UI, APK 빌드.
+- [Mobile Android 자동 빌드](.github/workflows/mobile.yml): 타입 검사·테스트,
+  엔진 컴파일, 실제 오프라인 플레이 검증, APK와 전체 소스 패키징.
+- [가져온 소스 버전 및 수정 범위](mobile/UPSTREAM.md),
+  [저작권·출처 안내](mobile/ATTRIBUTION.md).
+
+엔진은 GPL-2.0-or-later, 모바일 UI는 AGPL-3.0-or-later입니다.
+릴리스에 포함된 전체 대응 소스와 각 라이선스 고지를 함께 제공합니다.
+
+## 원본 DCSS 안내
 
 Dungeon Crawl Stone Soup is a game of dungeon exploration, combat and magic, involving characters of diverse skills, worshipping deities of great power and caprice. To win, you'll need to be a master of tactics and strategy, and prevail against overwhelming odds.
 
