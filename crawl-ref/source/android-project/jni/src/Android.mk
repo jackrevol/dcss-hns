@@ -102,6 +102,8 @@ LOCAL_SRC_FILES := $(SDL_PATH)/src/main/android/SDL_android_main.c \
     $(CRAWL_PATH)/god-wrath.cc \
     $(CRAWL_PATH)/hash.cc \
     $(CRAWL_PATH)/hints.cc \
+    $(CRAWL_PATH)/hns-loot.cc \
+    $(CRAWL_PATH)/hns-revival.cc \
     $(CRAWL_PATH)/hiscores.cc \
     $(CRAWL_PATH)/initfile.cc \
     $(CRAWL_PATH)/invent.cc \
