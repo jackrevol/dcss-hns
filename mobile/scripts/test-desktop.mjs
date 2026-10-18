@@ -10,6 +10,7 @@ const instance=await electron.launch({executablePath,args:executablePath?[]:[res
 try {
   const page=await instance.firstWindow()
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(60_000)
+  page.on('requestfailed',r=>console.error('DESKTOP_REQUEST_FAILED',r.url(),r.failure()?.errorText))
   await expect(page.locator('#offline-cloud')).toBeVisible()
   assert.equal(await page.evaluate(()=>isSecureContext),true)
   await page.locator('#offline-cloud').click()
@@ -18,7 +19,7 @@ try {
   await expect(page.locator('input[type="email"]')).toHaveCount(0)
   await page.getByRole('button',{name:'Close',exact:true}).click()
   await expect(page.locator('#offline-download')).toBeHidden()
-  await expect(page.locator('#offline-ready-sub')).toContainText('클라이언트에 포함됨')
+  await expect(page.locator('#offline-ready-sub')).toContainText('클라이언트에 포함됨',{timeout:60_000})
   const chooser=page.waitForEvent('filechooser')
   await page.locator('#offline-import').click()
   await (await chooser).setFiles(process.env.HNS_DESKTOP_PACK||resolve(root,'test-results/offline-backup.pzsave'))

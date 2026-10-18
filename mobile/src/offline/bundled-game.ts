@@ -28,7 +28,9 @@ async function webBundle(): Promise<{cache: Cache; game: BundledGame} | null> {
 export async function bundledGameVersion(): Promise<BundledGame | null> {
   try {
     if (isBundledClient()) {
-      const response = await fetch('/offline/version.json',{signal:AbortSignal.timeout(1500)})
+      // A cold Windows launch can take seconds to read packaged assets.
+      // Aborting early misclassifies the local bundle as an uninstalled web client.
+      const response = await fetch('/offline/version.json',{signal:AbortSignal.timeout(30_000)})
       return response.ok ? metadata(await response.json()) : null
     }
     return (await webBundle())?.game ?? null

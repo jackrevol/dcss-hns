@@ -15,6 +15,18 @@ it('uses the game already included in a fresh desktop app without a download or 
   expect(await probeReadiness()).toMatchObject({state:'ready',tiles:true,bundled:true,build:game.build})
   expect(cache.caches.size).toBe(0)
 })
+it('waits for bundled metadata on a slow first desktop launch',async()=>{
+  vi.stubGlobal('window',{HnsDesktop:{bundled:true}})
+  vi.mocked(fetch).mockImplementation((_input,init)=>new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>resolve(new Response(JSON.stringify({...game,clientBundle:true}),{headers:{'Content-Type':'application/json'}})),1700)
+    init?.signal?.addEventListener('abort',()=>{
+      clearTimeout(timer)
+      reject(init.signal?.reason)
+    },{once:true})
+  }))
+  expect(await probeReadiness()).toMatchObject({state:'ready',tiles:true,bundled:true,build:game.build})
+  expect(cache.caches.size).toBe(0)
+},10_000)
 it('recognizes bundled assets inside the Android engine worker too',async()=>{
   vi.stubGlobal('window',undefined);vi.stubGlobal('location',{hostname:'appassets.androidplatform.net'})
   expect(await bundledGameVersion()).toEqual(game)
