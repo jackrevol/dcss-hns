@@ -13,6 +13,7 @@ const arch = process.env.HNS_DESKTOP_ARCH || process.arch
 const platformName = { darwin: 'mac', win32: 'windows', linux: 'linux' }[platform]
 const release = releaseVersion()
 if (!platformName || !['x64', 'arm64'].includes(arch)) throw new Error('Unsupported desktop platform or architecture')
+execFileSync(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), 'build', '--config', 'vite.desktop.config.ts'], { cwd: root, stdio: 'inherit' })
 await import('./build-sdl.mjs')
 const native = resolve(root, 'build/sdl/native')
 const nativeManifest = JSON.parse(readFileSync(resolve(native, 'desktop.json'), 'utf8'))
@@ -24,7 +25,8 @@ if (!version.hns) throw new Error('Build the HNS client first')
 if (version.version !== release.version) throw new Error('Rebuild the engine and UI with the same HNS_RELEASE_VERSION')
 rmSync(input, { recursive: true, force: true }); mkdirSync(input, { recursive: true })
 cpSync(resolve(root,'desktop'),input,{recursive:true,filter:path=>!path.endsWith('.ts')})
-cpSync(dist,resolve(input,'web'),{recursive:true})
+cpSync(resolve(root, 'build/desktop-web'),resolve(input,'web'),{recursive:true})
+cpSync(resolve(root, 'public/_headers'), resolve(input, 'web/_headers'))
 await build({ entryPoints: [resolve(root, 'desktop/native-session.ts')], outfile: resolve(input, 'native-session.cjs'),
   bundle: true, platform: 'node', target: 'node22', format: 'cjs', define: { 'import.meta.env': '{}' } })
 // PC 관리 창에는 게임용 모바일 WASM을 넣지 않습니다.
@@ -36,8 +38,6 @@ const manifest = JSON.parse(readFileSync(resolve(native, 'desktop.json'), 'utf8'
 cpSync(resolve(native, manifest.fonts, 'DejaVuSansMono.ttf'), resolve(input, 'web/desktop-assets/DejaVuSansMono.ttf'))
 cpSync(resolve(native, manifest.data, 'dat/tiles/logo.png'), resolve(input, 'web/desktop-assets/logo.png'))
 cpSync(resolve(native, manifest.data, 'dat/tiles/stone_soup_icon-512x512.png'), resolve(input, 'web/desktop-assets/icon.png'))
-const index = resolve(input, 'web/index.html')
-writeFileSync(index, readFileSync(index, 'utf8').replaceAll('/icon-192.png', '/desktop-assets/icon.png'), 'utf8')
 rmSync(resolve(input,'web/sw.js'),{force:true})
 for (const name of ['LICENSE','ATTRIBUTION.md']) cpSync(resolve(root,name),resolve(input,'web',name+'.txt'))
 cpSync(resolve(root,'../LICENSE'),resolve(input,'web/ENGINE-LICENSE.txt'))

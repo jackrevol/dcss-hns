@@ -281,6 +281,7 @@ tilepick-p.o \
 tilecell.o
 
 GLTILES_OBJECTS = \
+hns-desktop-menu.o \
 glwrapper.o \
 libgui.o \
 tilebuf.o \

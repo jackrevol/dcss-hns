@@ -67,6 +67,7 @@
 #ifdef USE_TILE_LOCAL
  #include "windowmanager.h"
  #include "syscalls.h"
+ #include "hns-desktop.h"
 #endif
 #include "ui.h"
 #ifdef __ANDROID__
@@ -703,22 +704,31 @@ public:
         m_root->add_child(std::move(grid));
 
 #ifdef USE_TILE_LOCAL
-        // 원본 시작 메뉴에 HNS 관리 진입점만 추가합니다.
+        // HNS의 모든 메뉴를 원본 시작 화면 안에 배치합니다.
         if (getenv("HNS_DESKTOP_MANAGE"))
         {
-            auto manage = make_shared<MenuButton>();
-            manage->id = -2;
-            auto row = make_shared<Box>(Box::HORZ);
-            row->set_cross_alignment(Widget::Align::CENTER);
-            auto icon = make_shared<Image>();
-            icon->set_tile(tile_def(tileidx_gametype(GAME_TYPE_INSTRUCTIONS)));
-            icon->set_margin_for_sdl(0, 6, 0, 0);
-            row->add_child(icon);
-            row->add_child(make_shared<Text>(formatted_string(
-                "[F2] HNS settings / save management", LIGHTCYAN)));
-            manage->set_child(row);
-            manage->set_margin_for_sdl(0, 0, 10, 0);
-            m_root->add_child(manage);
+            auto title = make_shared<Text>(formatted_string("HNS settings / saves", LIGHTCYAN));
+            title->set_margin_for_sdl(8, 0, 6, 0);
+            m_root->add_child(title);
+            auto menu = make_shared<Grid>();
+            const char *labels[] = {"[F2] Item drops", "[F3] Options file", "[F4] Past games / morgues",
+                "[F5] Export save backup", "[F6] Import save backup", "[F7] Cloud saves"};
+            for (int i = 0; i < 6; ++i)
+            {
+                auto button = make_shared<MenuButton>();
+                button->id = -2 - i;
+                auto row = make_shared<Box>(Box::HORZ);
+                row->set_cross_alignment(Widget::Align::CENTER);
+                auto icon = make_shared<Image>();
+                icon->set_tile(tile_def(tileidx_gametype(i == 2 ? GAME_TYPE_HIGH_SCORES : GAME_TYPE_INSTRUCTIONS)));
+                icon->set_margin_for_sdl(0, 6, 0, 0);
+                row->add_child(icon);
+                row->add_child(make_shared<Text>(formatted_string(labels[i], LIGHTCYAN)));
+                row->set_margin_for_sdl(2, 10, 2, 2);
+                button->set_child(row);
+                menu->add_child(button, i % 2, i / 2);
+            }
+            m_root->add_child(menu);
         }
 #endif
 
@@ -761,6 +771,7 @@ public:
 
     bool done;
     bool end_game;
+    bool reload = false;
     virtual shared_ptr<Widget> get_child_at_offset(int, int) override {
         return m_root;
     }
@@ -888,9 +899,14 @@ void UIStartupMenu::on_show()
             return true;
         }
 #ifdef USE_TILE_LOCAL
-        else if (keyn == CK_F2 && getenv("HNS_DESKTOP_MANAGE"))
+        else if (getenv("HNS_DESKTOP_MANAGE")
+            && (keyn == CK_F2 || keyn == CK_F3 || keyn == CK_F4
+                || keyn == CK_F5 || keyn == CK_F6 || keyn == CK_F7))
         {
-            menu_item_activated(-2);
+            const int keys[] = {CK_F2, CK_F3, CK_F4, CK_F5, CK_F6, CK_F7};
+            for (int i = 0; i < 6; ++i)
+                if (keyn == keys[i])
+                    menu_item_activated(-2 - i);
             return true;
         }
 #endif
@@ -966,16 +982,10 @@ void UIStartupMenu::on_show()
 void UIStartupMenu::menu_item_activated(int id)
 {
 #ifdef USE_TILE_LOCAL
-    if (id == -2)
+    if (id <= -2 && id >= -7)
     {
-        if (const char *path = getenv("HNS_DESKTOP_MANAGE"))
-        {
-            if (FILE *file = fopen_u(path, "wb"))
-            {
-                fclose(file);
-                end(0);
-            }
-        }
+        reload = hns_desktop_menu(-id - 2);
+        done = reload;
         return;
     }
 #endif
@@ -1043,17 +1053,23 @@ static void _show_startup_menu(newgame_def& ng_choice,
     tiles_crt_popup show_as_popup;
 #endif
 
-    auto startup_ui = make_shared<UIStartupMenu>(ng_choice, defaults);
-    auto popup = make_shared<ui::Popup>(startup_ui);
-
-    ui::run_layout(std::move(popup), startup_ui->done);
-
-    if (startup_ui->end_game || crawl_state.seen_hups)
+    while (true)
     {
+        auto startup_ui = make_shared<UIStartupMenu>(ng_choice, defaults);
+        auto popup = make_shared<ui::Popup>(startup_ui);
+        ui::run_layout(std::move(popup), startup_ui->done);
+        if (startup_ui->end_game || crawl_state.seen_hups)
+        {
 #ifdef USE_TILE_WEB
-        tiles.send_exit_reason("cancel");
+            tiles.send_exit_reason("cancel");
 #endif
-        end(0);
+            end(0);
+        }
+        if (!startup_ui->reload)
+            break;
+        // 같은 창을 유지하며 RC와 복원된 캐릭터 목록만 다시 읽습니다.
+        read_init_file(false);
+        Options.fixup_options();
     }
 }
 #endif

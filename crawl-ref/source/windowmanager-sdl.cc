@@ -35,6 +35,147 @@
 #include "version.h"
 #include "windowmanager.h"
 
+#if defined(WIZARD) && !defined(__ANDROID__)
+#include <SDL_opengl.h>
+#include "end.h"
+#include "json.h"
+#include "outer-menu.h"
+#include "ui.h"
+
+// 앱 내부 위젯만 조작하는 통합 테스트입니다. 일반 실행에서는 사용하지 않습니다.
+static bool _hns_menu_test_event(wm_event *event)
+{
+    const char *path = getenv("HNS_DESKTOP_UI_TEST");
+    if (!path || !*path || hns_desktop_menu_busy() || !ui::has_layout())
+        return false;
+    static unique_ptr<JsonNode, void (*)(JsonNode*)> plan(nullptr, json_delete);
+    static int step = 0;
+    static Uint32 next = 0, deadline = 0;
+    if (!plan)
+    {
+        FILE *file = fopen_u(path, "rb");
+        if (!file)
+            end(1, false, "Cannot read native UI test plan");
+        string source;
+        char buffer[4096];
+        size_t size;
+        while ((size = fread(buffer, 1, sizeof(buffer), file)))
+            source.append(buffer, size);
+        fclose(file);
+        plan.reset(json_decode(source.c_str()));
+        if (!plan)
+            end(1, false, "Invalid native UI test plan");
+        next = SDL_GetTicks() + 500;
+        deadline = next + 30000;
+    }
+    if (SDL_GetTicks() < next)
+        return false;
+    auto str = [](const JsonNode *node, const char *key) -> string {
+        const auto member = json_find_member(node, key);
+        return member && member->tag == JSON_STRING ? member->string_ : "";
+    };
+    const auto command = json_find_element(json_find_member(plan.get(), "steps"), step);
+    if (!command)
+        return false;
+    vector<shared_ptr<MenuButton>> buttons;
+    vector<shared_ptr<ui::TextEntry>> inputs;
+    string contents;
+    function<void(shared_ptr<ui::Widget>)> visit = [&](shared_ptr<ui::Widget> widget) {
+        if (!widget || !widget->is_visible())
+            return;
+        if (auto label = dynamic_pointer_cast<ui::Text>(widget))
+            contents += label->get_text().tostring() + "\n";
+        if (auto button = dynamic_pointer_cast<MenuButton>(widget))
+            buttons.push_back(button);
+        if (auto input = dynamic_pointer_cast<ui::TextEntry>(widget))
+            inputs.push_back(input);
+        bool children = false;
+        widget->for_each_child([&](shared_ptr<ui::Widget> &child) { children = true; visit(child); });
+        if (!children)
+            visit(widget->get_child_at_offset(0, 0));
+    };
+    visit(ui::top_layout());
+    const string kind = str(command, "kind"), value = str(command, "value");
+    shared_ptr<MenuButton> target;
+    if (kind == "activate")
+    {
+        for (auto button : buttons)
+        {
+            string label;
+            function<void(shared_ptr<ui::Widget>)> labels = [&](shared_ptr<ui::Widget> widget) {
+                if (auto text = dynamic_pointer_cast<ui::Text>(widget))
+                    label += text->get_text().tostring();
+                widget->for_each_child([&](shared_ptr<ui::Widget> &child) { labels(child); });
+            };
+            labels(button);
+            if (label.find(value) != string::npos)
+                target = button;
+        }
+    }
+    bool ready = kind != "expect" || contents.find(value) != string::npos;
+    if (kind == "activate")
+        ready = !!target;
+    if (!ready)
+    {
+        if (SDL_GetTicks() > deadline)
+            end(1, false, "Native UI step %d failed: %s\n%s", step, value.c_str(), contents.c_str());
+        return false;
+    }
+    ++step;
+    if (FILE *file = fopen_u((string(path) + ".progress").c_str(), "wb"))
+    {
+        fprintf(file, "%d: %s %s", step, kind.c_str(), value.c_str());
+        fclose(file);
+    }
+    next = SDL_GetTicks() + 200;
+    deadline = next + 30000;
+    event->type = WME_NOEVENT;
+    if (kind == "activate")
+        target->activate();
+    else if (kind == "fill")
+    {
+        auto index = json_find_member(command, "index");
+        const size_t i = index && index->tag == JSON_NUMBER ? index->number_ : 0;
+        if (i >= inputs.size())
+            end(1, false, "Native UI input not found");
+        inputs[i]->set_text(value);
+    }
+    else if (kind == "escape")
+    {
+        event->type = WME_KEYDOWN;
+        event->key.keysym.sym = CK_ESCAPE;
+    }
+    else if (kind == "snapshot")
+    {
+        ui::render();
+        int width, height;
+        SDL_GL_GetDrawableSize(SDL_GL_GetCurrentWindow(), &width, &height);
+        vector<unsigned char> pixels(width * height * 4), flipped(pixels.size());
+        glReadBuffer(GL_FRONT);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        glReadBuffer(GL_BACK);
+        for (int y = 0; y < height; ++y)
+            copy_n(pixels.data() + y * width * 4, width * 4, flipped.data() + (height - y - 1) * width * 4);
+        SDL_Surface *surface = SDL_CreateRGBSurfaceFrom(flipped.data(), width, height, 32, width * 4,
+            0xff, 0xff00, 0xff0000, 0xff000000);
+        if (!surface || IMG_SavePNG(surface, value.c_str()))
+            end(1, false, "Could not capture native UI");
+        SDL_FreeSurface(surface);
+    }
+    else if (kind == "complete")
+    {
+        if (FILE *file = fopen_u(str(plan.get(), "report").c_str(), "wb"))
+        {
+            fprintf(file, "{\"ok\":true,\"steps\":%d}", step);
+            fclose(file);
+        }
+        event->type = WME_KEYDOWN;
+        event->key.keysym.sym = CK_ESCAPE;
+    }
+    return true;
+}
+#endif
+
 WindowManager *wm = nullptr;
 
 #define MIN_SDL_WINDOW_SIZE_X 800
@@ -563,6 +704,8 @@ int SDLWrapper::init(coord_def *m_windowsz)
     }
 
     string title = string(CRAWL " ") + Version::Long;
+    if (getenv("HNS_DESKTOP_UI_TEST"))
+        flags |= SDL_WINDOW_HIDDEN;
     m_window = SDL_CreateWindow(title.c_str(),
                                 SDL_WINDOWPOS_CENTERED_DISPLAY(cur_display),
                                 SDL_WINDOWPOS_CENTERED_DISPLAY(cur_display),
@@ -940,6 +1083,10 @@ int SDLWrapper::wait_event(wm_event *event, int timeout)
         hns_desktop_checkpoint();
         timeout = min(timeout, 250);
     }
+#if defined(WIZARD) && !defined(__ANDROID__)
+    if (_hns_menu_test_event(event))
+        return 1;
+#endif
 
     if (!m_textinput_queue.empty())
     {

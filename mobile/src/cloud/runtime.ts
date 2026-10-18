@@ -123,14 +123,14 @@ export function savedCheckpoint(delayMs = 60_000): void {
     }).catch(() => {})
   }, delayMs)
 }
-export function endCloudGame(): Promise<void> {
+export function endCloudGame(sync = true): Promise<void> {
   if (timer) { clearTimeout(timer); timer = undefined }
   cloud.cancelSync()
   provider.cancel()
   return serial(async () => {
     cloud.playing = false
     await releaseGame?.(); releaseGame = null
-  }).then(() => syncIdle()).catch(() => {})
+  }).then(() => { if (sync) return syncIdle() }).catch(() => {})
 }
 export function restoreCloudArchive(id: string): Promise<void> {
   return serial(async () => {

@@ -1,0 +1,112 @@
+# PC 원본 메인 메뉴 통합 작업 인수인계
+
+작성: 2026-10-18 (한국 시간). 작업 브랜치: `codex/pc-native-main-menu`.
+기준 커밋: `4165da074054cc955ec4736a612a2d1d357a8761` (`master`).
+
+**현재 상태는 작업 중입니다. Windows 빌드는 성공했지만 실제 SDL 메뉴 통합 검사가 실패하여 배포 완료 상태가 아닙니다.**
+사용자 요청으로 오늘 작업을 종료하고, 다른 컴퓨터에서 이어갈 수 있도록 코드와 알려진 문제를 보관합니다.
+
+## 반드시 유지할 사용자 요구사항
+
+- Windows/Linux/macOS PC 클라이언트는 원본 DCSS의 UI, 키보드·마우스 조작을 사용합니다.
+- 드랍 설정, 옵션 파일, 기록/영안실, 세이브 백업·복원, 클라우드 기능을 원본 메인에서 직접 엽니다.
+- 별도 관리 창이나 모바일 로비를 거치지 않습니다. PC에서는 오류 상황에도 모바일 화면이 나타나면 안 됩니다.
+- 원본을 전부 새로 만드는 작업은 아닙니다. 기존 원본 메뉴·위젯·아이콘 스타일에 추가 기능을 통합합니다.
+- 드랍·저장·클라우드의 기존 기능과 저장 형식은 유지합니다.
+- 릴리즈 버전은 사용자가 선택한 `0.35-a0-hns.1` 형식으로 원본 개발 버전을 유지합니다.
+
+## 이번 브랜치에 구현한 내용
+
+- `crawl-ref/source/startup.cc`: 원본 시작 화면에 F2 드랍, F3 옵션, F4 기록/영안실, F5 백업, F6 복원, F7 클라우드 버튼을 배치했습니다. 원본 아이콘을 사용하며 변경 후 같은 창에서 목록과 옵션을 다시 읽습니다.
+- `crawl-ref/source/hns-desktop-menu.cc`: 원본 SDL 위젯을 사용하는 드랍 입력, RC 편집, 기록 조회/삭제/내보내기, 백업, 클라우드 계정·동기화·충돌·복구 메뉴입니다. 원본 폰트에 맞춰 메뉴는 영어이며 비밀번호 입력은 가립니다.
+- `mobile/src/platform/desktop-actions.ts`: 기존 드랍/RC, IndexedDB, `.pzsave`, 기록 및 클라우드 기능을 네이티브 메뉴 요청에 연결합니다.
+- `mobile/desktop/native-session.ts`, `mobile/src/platform/native-game.ts`: SDL 요청을 stdout 파이프로 받고 숨겨진 서비스에서 처리합니다. 세이브 반영 확인, 소유권 잠금, 비정상 종료 복구 저널을 추가했습니다. 비밀번호 원문은 요청 파일에 기록하지 않습니다.
+- `mobile/desktop/main.cjs`, `mobile/src/platform/desktop-service.ts`: Electron은 화면 없는 저장 서비스로만 실행합니다. 모바일 로비를 표시하는 경로를 제거했습니다. 파일 선택은 운영체제 대화상자를 사용합니다.
+- `mobile/vite.desktop.config.ts`, `mobile/desktop-service.html`, `mobile/scripts/build-desktop.mjs`: PC 전용 서비스 번들을 패키징합니다. 모바일 HTML·CSS·UI 번들은 PC 패키지에서 제외합니다.
+- 기존 `mobile/src/views/desktop-manager.ts`, `desktop.css`를 삭제하고 모바일 `app.ts`의 PC 관리 화면 분기를 제거했습니다.
+- SDL 내부 위젯 검사와 스크린샷을 위한 테스트 전용 코드를 `windowmanager-sdl.cc`에 추가했습니다. `HNS_DESKTOP_UI_TEST`가 있을 때만 작동하며 테스트 SDL 창은 숨깁니다.
+
+## 검증 결과와 미해결 문제
+
+- 전체 단위 테스트의 마지막 실행: 120개 파일 통과, 1개 건너뜀 / 1,721개 테스트 통과, 18개 건너뜀. 이후 수정은 주로 통합 검사 진단 및 테스트 창 숨김 처리입니다.
+- 종료 전 재검사: `npm run typecheck`, JS 구문 검사 통과. `desktop/native-session.test.ts`, `src/platform/native-game.test.ts`, `src/platform/desktop-actions.test.ts`의 15개 테스트 통과.
+- Windows SDL 컴파일 및 PC 압축 파일 생성 성공. 생성물은 추적하지 않습니다.
+- 원본 메인에 여섯 버튼이 보이는 스크린샷을 한 번 확보했습니다. 로컬 경로는 `mobile/test-results/native-menu/main.png`이며 Git에는 포함하지 않았습니다.
+- **`npm run test:desktop-menu`는 실패합니다.** 패키지 실행에서는 보고서 생성 없이 제한 시간 초과가 발생했고, 마지막 개발 모드 실행에서는 네이티브 프로세스가 종료 코드 1로 끝났습니다. 원인은 아직 확인하지 못했습니다.
+
+마지막 실패의 핵심 로그:
+
+```text
+Failed to load resource: the server responded with a status of 404 (Not Found)
+게임 창이 종료되었습니다. 저장된 진행은 보존했습니다. 앱을 다시 실행해 주세요.
+Native started: 24792
+Native exited: 1
+AssertionError [ERR_ASSERTION]: Native menu test stopped before completion
+```
+
+`Menu action:` 로그와 완료 보고서가 없었습니다. 네이티브 초기화/종료 원인, 테스트 드라이버 진입 여부, 서비스 요청 연결을 확인해야 합니다.
+404는 테스트가 모바일 `/index.html`의 미포함을 확인하면서 의도적으로 발생시킬 수 있습니다. **원인 확인 없이 모바일 HTML을 PC에 다시 넣지 마세요.**
+`test:desktop`도 이 메뉴 검사를 포함하므로 현재 통합 검사가 통과한다고 가정하면 안 됩니다.
+테스트의 임시 프로필은 종료 시 삭제됩니다. 실패 진단은 콘솔의 `.progress`, `.stderr` 내용을 먼저 확인하고, 추가 진단이 필요하면 임시 프로필 보존 옵션을 구현하세요.
+
+## 다른 컴퓨터에서 재개
+
+```sh
+git clone --branch codex/pc-native-main-menu --recurse-submodules https://github.com/jackrevol/dcss-hns.git
+cd dcss-hns/mobile
+npm ci
+npm run typecheck
+npm test
+```
+
+기존 체크아웃에서는 이 브랜치를 가져와 전환한 뒤 `git submodule update --init --recursive`를 실행합니다.
+Node.js는 `package.json`의 요구 버전(22.12 이상)을 사용하고, 원본 네이티브 의존성은 `crawl-ref/INSTALL.md`와 `.github/workflows/mobile.yml`을 참고하세요.
+
+Windows 로컬 빌드에 사용한 PowerShell 환경:
+
+```powershell
+# MSYS2 MINGW64와 의존성이 설치된 환경에서, mobile 폴더 기준
+$env:PATH = 'C:\msys64\mingw64\bin;C:\msys64\usr\bin;' + $env:PATH
+$env:MSYSTEM = 'MINGW64'
+npm run build:desktop
+npm run test:desktop
+```
+
+Windows 생성물: `mobile/build/desktop/DCSS-HNS-0.35-a0-hns.1-windows-x64.zip`.
+개발 서비스 소스는 `mobile/build/desktop-source`, SDL 패키지는 `mobile/build/sdl/native`에 생성됩니다.
+별도로 메뉴 검사만 실행할 때는 `npm run test:desktop-menu`를 사용합니다.
+`HNS_DESKTOP_EXECUTABLE`을 설정하면 해당 패키지 실행 파일을 검사하고, 설정하지 않으면 개발 서비스 소스를 사용합니다.
+`HNS_DESKTOP_PACK`에는 테스트용 `.pzsave`의 절대 경로를 지정할 수 있습니다.
+
+실제 Android CI 테스트 세이브는 아래 명령으로 다시 받을 수 있습니다(아티팩트 보존 기간 내, GitHub 인증 필요).
+
+```sh
+gh run download 39126518970 --repo jackrevol/dcss-hns --name dcss-hns-client-input --dir mobile/build/ci-client-input
+```
+
+해당 아티팩트의 `test-results/offline-backup.pzsave`에 `HnsSmoke` 캐릭터가 있습니다.
+메뉴 검사에서 import 경로까지 검사하려면 이 파일을 `HNS_DESKTOP_PACK`으로 지정하세요.
+기본 검색 위치는 `mobile/test-results/offline-backup.pzsave`입니다. 파일이 없으면 복원 검사를 건너뜁니다.
+개인 세이브나 계정 정보를 테스트 입력이나 Git에 추가하지 마세요.
+
+## 먼저 이어서 할 일
+
+1. 실제 SDL 메뉴 검사의 종료 코드 1/시간 초과 원인을 재현하고 해결합니다. 모바일 UI 없는 전용 서비스 구조를 유지합니다.
+2. 여섯 메뉴, 드랍 저장 및 RC 재로딩, 백업·복원, 기록, 클라우드 입력과 비밀번호 가림을 같은 원본 창에서 검증합니다.
+3. 저장 중단/강제 종료/복구, 기존 Android 백업과의 호환성을 확인합니다. 네이티브 DB 캐시와 복구 저널 처리도 유지합니다.
+4. Windows/Linux/macOS CI를 확인한 뒤 `master` 반영과 릴리즈를 진행합니다. 현재 브랜치는 미완료 작업 보관용입니다.
+
+## 이전 master 수정과 CI 이력
+
+- `34cbfe9eba`: PC 원본 SDL UI와 조작 복원, HNS 저장 기능, 버전 표기 정리.
+- `d7a78129e6`: Windows CI에 존재하지 않는 선택 패키지 `mingw-w64-x86_64-advancecomp` 제거.
+- `4165da0740`: 다른 드라이브에서 실행할 때 `_create_dirs`가 `C:`에 `_wmkdir`를 호출하던 오류 수정. 실제 드라이브 분리 조건에서 이전 실패/수정 후 통과를 확인했습니다.
+- CI 실행 `39126518970`은 Windows 드라이브 문제 수정 전 실패한 실행입니다. 이후 `4165da0740`의 실행 `39129872819`는 취소 상태를 확인했으며, 전체 릴리즈 성공을 확인한 상태가 아닙니다.
+
+## 보관 범위와 작업 규칙
+
+- 루트의 미추적 `dist/`는 기존 사용자 파일/실행 파일/세이브가 있는 로컬 폴더입니다. 수정·삭제·커밋하지 않았습니다.
+- `mobile/build/`, `mobile/test-results/` 등 생성물은 제외했습니다. 다른 컴퓨터에서는 다시 빌드해야 합니다.
+- 오늘 실행한 게임/테스트 프로세스는 종료했습니다.
+- 응답·인수인계·커밋은 한국어, 텍스트 파일은 UTF-8을 사용합니다. 기존 프로젝트 주석 스타일을 우선합니다.
+- 별도 하위 에이전트 사용은 사용자가 요청한 경우에만 허용됩니다.

@@ -80,13 +80,17 @@ Android 앱, macOS 독립 앱, Windows/Linux/macOS 브라우저는 같은 계정
 
 ## Windows/Linux/macOS 독립 앱
 
+현재 브랜치의 원본 메인 메뉴 통합은 작업 중이며 SDL 메뉴 통합 검사가 실패합니다.
+재개 방법과 미해결 문제는 [인수인계 문서](../HANDOFF.md)에 정리했습니다.
+
 PC 앱은 원본 DCSS의 시작 메뉴·캐릭터 선택·SDL 타일 화면·키보드와 마우스
-조작을 그대로 사용합니다. 원본 시작 메뉴에 **F2: HNS settings / save management**
-진입점만 추가하며, 여기서 드랍 설정·옵션 파일·기록·세이브 백업/복원·클라우드
-동기화를 사용합니다. 관리 화면은 원본 로고와 고정폭 글꼴·메뉴 색상을 따릅니다.
+조작을 그대로 사용합니다. 원본 메인에 **F2 드랍 · F3 옵션 · F4 기록/영안실 ·
+F5 백업 · F6 복원 · F7 클라우드** 메뉴를 배치합니다. 모든 설정·계정 화면을
+같은 SDL 창에서 원본 위젯으로 열며, 파일 선택만 운영체제 대화상자를 사용합니다.
 Android의 모바일 로비·터치 조작은 Android 앱에 유지합니다.
 
-`npm run build:desktop`은 SDL 엔진과 관리 UI를 포함한 독립 앱과 배포 압축 파일을 생성합니다.
+`npm run build:desktop`은 SDL 엔진과 화면 없는 저장 서비스를 포함한 독립 앱과 배포 압축 파일을 생성합니다.
+PC 패키지에는 모바일 화면의 HTML·CSS·게임 UI 번들을 넣지 않습니다.
 현재 호스트의 플랫폼/CPU를 기본으로 사용하며, `HNS_DESKTOP_PLATFORM`
 (`darwin`, `win32`, `linux`), `HNS_DESKTOP_ARCH`는 호스트와 일치해야 합니다.
 먼저 모든 서브모듈과 [네이티브 빌드 의존성](../crawl-ref/INSTALL.md)을 준비하세요.
@@ -105,8 +109,10 @@ Windows x64는 `build/desktop/DCSS-HNS-<version>-windows-x64.zip`, Linux x64는
 SDL 엔진의 저장 체크포인트를 기존 IndexedDB에 반영하여 백업과 동기화에
 동일한 진행을 제공합니다. 비정상 종료 시 네이티브 사본을 먼저 복구하며,
 저장 반영을 확인하기 전에는 복구 사본을 지우지 않습니다.
-`npm run test:desktop`은 PC 관리 화면의 드랍 설정·백업/복원·클라우드 UI와
-포함한 원본 SDL 엔진·타일·폰트·데이터 초기화를 검증합니다.
+`npm run test:desktop`은 원본 SDL 메인과 드랍 설정·백업/복원·클라우드 입력창,
+포함한 엔진·타일·폰트·데이터 초기화 및 모바일 화면 미포함을 검증합니다.
+`npm run test:desktop-menu`는 실제 SDL 메인 화면에서 여섯 메뉴, 드랍 입력,
+백업·복원, 옵션 갱신과 클라우드 입력창을 검사하고 원본 창의 스크린샷을 남깁니다.
 
 웹 클라이언트도 빌드 시 게임 데이터 전체를 설치 목록에 포함합니다.
 최초 접속/설치 시 자동으로 함께 캐시하며 별도 게임 데이터 다운로드는
@@ -270,7 +276,7 @@ artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lu
 소스를 포함한 배포용 소스 압축 파일을 생성합니다.
 
 **[Platform Release](../.github/workflows/release.yml)**는 `master`에 push한
-커밋의 **Build** 성공 후 이 워크플로를 재사용하고, 검증한 관리 UI와 같은 소스
+커밋의 **Build** 성공 후 이 워크플로를 재사용하고, 공유 저장 서비스와 같은 소스
 커밋에서 빌드한 원본 SDL 엔진을 Windows x64, Linux x64,
 macOS Intel/Apple Silicon 앱으로 패키징합니다.
 Android 오프라인 플레이와 PC 빌드·저장 기능·게임 데이터 검증이 성공하면
