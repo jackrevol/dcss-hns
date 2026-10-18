@@ -11,20 +11,30 @@ UI를 적용한 Android 앱으로 인터넷 없이 플레이할 수 있습니다
 
 `master`에 push한 커밋의 **Build**가 성공하면
 **[Platform Release](.github/workflows/release.yml)**가 해당 커밋의 엔진과 UI를
-빌드합니다. Android와 모든 데스크톱 앱의 빌드·오프라인 플레이 검증이
-성공하면 `hns-<커밋 SHA 앞 12자리>` 태그로 새 릴리즈를 생성하고 아래 파일을
+빌드합니다. Android 오프라인 플레이와 PC 앱의 빌드·저장 기능·게임 데이터 검증이
+성공하면 `v0.35-a0-hns.<순번>` 태그로 새 릴리즈를 생성하고 아래 파일을
 함께 게시합니다. 실패한 빌드나 PR·다른 브랜치의 빌드는 자동 게시하지 않습니다.
 
-| 플랫폼 | 파일 이름 (`<tag>`는 릴리즈 태그) | 실행 방법 |
+| 플랫폼 | 파일 이름 (`<version>` 예: `0.35-a0-hns.1`) | 실행 방법 |
 | --- | --- | --- |
-| Android | `dcss-hns-<tag>-android-debug.apk` | APK 설치 |
-| Windows x64 | `dcss-hns-<tag>-windows-x64.zip` | 압축 해제 후 `DCSS HNS.exe` 실행 |
-| Linux x64 | `dcss-hns-<tag>-linux-x64.tar.gz` | 압축 해제 후 `DCSS HNS` 실행 |
-| macOS Intel | `dcss-hns-<tag>-macos-x64.zip` | 압축 해제 후 `DCSS HNS.app` 실행 |
-| macOS Apple Silicon | `dcss-hns-<tag>-macos-arm64.zip` | 압축 해제 후 `DCSS HNS.app` 실행 |
+| Android | `dcss-hns-<version>-android-debug.apk` | APK 설치 |
+| Windows x64 | `dcss-hns-<version>-windows-x64.zip` | 압축 해제 후 `DCSS HNS.exe` 실행 |
+| Linux x64 | `dcss-hns-<version>-linux-x64.tar.gz` | 압축 해제 후 `DCSS HNS` 실행 |
+| macOS Intel | `dcss-hns-<version>-macos-x64.zip` | 압축 해제 후 `DCSS HNS.app` 실행 |
+| macOS Apple Silicon | `dcss-hns-<version>-macos-arm64.zip` | 압축 해제 후 `DCSS HNS.app` 실행 |
 
-전체 대응 소스(`dcss-hns-source-*.tar.gz`)와 `SHA256SUMS.txt`도 함께 제공합니다.
+버전은 `0.35-a0-hns.1`, `0.35-a0-hns.2`처럼 마지막 순번만 증가합니다.
+앱 표시·릴리즈 제목·플랫폼 파일명에 같은 버전을 사용하고, 커밋 해시와
+엔진 캐시 식별자는 상세 빌드 정보에 보관합니다. 같은 커밋을 다시 빌드하면
+이미 게시한 버전을 재사용합니다.
+
+전체 대응 소스(`dcss-hns-<version>-source.tar.gz`)와 `SHA256SUMS.txt`도 함께 제공합니다.
 데스크톱 앱은 엔진과 게임 데이터를 포함하며 별도 Node.js 설치 없이 실행됩니다.
+Windows·Linux·macOS는 원본 DCSS의 시작 메뉴·타일 UI·키보드와 마우스 조작을
+사용합니다. 시작 메뉴의 **F2: HNS settings / save management**에서
+드랍 설정, 세이브 백업·복원, 클라우드 동기화를 사용할 수 있습니다.
+추가 관리 화면은 원본 로고·고정폭 글꼴·메뉴 색상을 사용하며 원본 로비를
+대체하지 않습니다. 기존 PC 앱의 세이브와 로그인 데이터도 그대로 사용합니다.
 Actions의 **Platform Release → Run workflow**에서 `tag`를 비워 두면 선택한
 브랜치의 커밋을 수동으로 릴리즈할 수 있습니다. 기존 태그를 지정하면 해당
 커밋을 빌드하여 릴리즈를 생성하거나 기존 첨부 파일을 교체합니다. 릴리즈를
@@ -64,6 +74,7 @@ HNS 규칙은 앱의 오프라인 게임에 적용합니다. 공개 WebTiles 서
 ## 아이템 드랍 설정
 
 오프라인 로비의 **아이템 드랍 → 설정**에서 변경합니다.
+PC에서는 원본 시작 메뉴의 **F2 → 아이템 드랍 설정**으로 엽니다.
 
 | 설정 | 기본값 | 범위 |
 | --- | ---: | ---: |

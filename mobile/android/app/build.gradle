@@ -1,5 +1,20 @@
 plugins { id 'com.android.application' }
 
+def versionConfig = new groovy.json.JsonSlurper().parse(file('../../version.json'), 'UTF-8')
+def engineInfo = file('../../public/offline/version.json')
+def releaseInfo = file('../../release-info.json')
+def recordedVersion = engineInfo.exists() ? new groovy.json.JsonSlurper().parse(engineInfo, 'UTF-8').version :
+    (releaseInfo.exists() ? new groovy.json.JsonSlurper().parse(releaseInfo, 'UTF-8').version : null)
+def hnsVersion = providers.gradleProperty('hnsVersionName').getOrElse(
+    System.getenv('HNS_RELEASE_VERSION') ?: recordedVersion ?: "${versionConfig.upstream}-hns.${versionConfig.revision}")
+def versionPrefix = versionConfig.upstream + '-hns.'
+def revision = hnsVersion.startsWith(versionPrefix) ? hnsVersion.substring(versionPrefix.length()) : ''
+if (!(revision ==~ /[1-9][0-9]*/) || revision.toBigInteger() > 65535) {
+    throw new GradleException('Build the engine with an HNS version such as 0.35-a0-hns.1')
+}
+def gameNumbers = versionConfig.upstream.tokenize('-').first().tokenize('.').collect { it.toInteger() }
+def androidVersionCode = gameNumbers[0] * 100000000 + gameNumbers[1] * 100000 + revision.toInteger()
+
 android {
     namespace 'io.github.jackrevol.dcsshns'
     compileSdk 36
@@ -8,8 +23,8 @@ android {
         applicationId 'io.github.jackrevol.dcsshns'
         minSdk 23
         targetSdk 36
-        versionCode providers.gradleProperty('hnsVersionCode').getOrElse('1').toInteger()
-        versionName providers.gradleProperty('hnsVersionName').getOrElse('0.35-a0-hns')
+        versionCode providers.gradleProperty('hnsVersionCode').getOrElse(androidVersionCode.toString()).toInteger()
+        versionName hnsVersion
     }
     buildFeatures { buildConfig true }
     compileOptions {
@@ -23,7 +38,8 @@ tasks.register('prepareWebAssets', Exec) {
     workingDir rootProject.projectDir.parentFile
     commandLine 'node', 'scripts/prepare-android.mjs'
     inputs.dir '../../dist'
-    inputs.files '../../LICENSE', '../../../LICENSE', '../../ATTRIBUTION.md', '../../scripts/prepare-android.mjs'
+    inputs.property 'hnsReleaseVersion', hnsVersion
+    inputs.files '../../LICENSE', '../../../LICENSE', '../../ATTRIBUTION.md', '../../scripts/prepare-android.mjs', '../../scripts/release-version.mjs', '../../version.json'
     outputs.dir layout.buildDirectory.dir('generated/webAssets')
 }
 tasks.named('preBuild').configure { dependsOn 'prepareWebAssets' }

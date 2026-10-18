@@ -82,7 +82,7 @@ BUILD=$(sh wasm/build-id.sh)
 # tr guard: the value is spliced into JSON unescaped, so strip anything
 # outside the characters real tags use (a stray quote would make the client
 # misread the whole deploy as unreachable).
-VERSION=$(sed -n 's/#define CRAWL_VERSION_SHORT "\(.*\)"/\1/p' build.h 2>/dev/null | tr -cd 'A-Za-z0-9._+-')
+VERSION=$(sed -n 's/#define CRAWL_VERSION_LONG "\(.*\)"/\1/p' build.h 2>/dev/null | tr -cd 'A-Za-z0-9._+-')
 
 # The engine's own enums.js: flag decoding for the bundled version, served
 # same-origin at /gamedata/local/ (see PocketZot's LocalConnection.httpBase).
@@ -111,7 +111,6 @@ cp webserver/game_data/static/status-icon-sizes.js "$TARGET/public/gamedata/loca
     > manifest.json)
 # Publish the cache identity only after the complete engine/tile pair landed.
 if [ -n "$VERSION" ]; then
-    VERSION="${VERSION%-hns}-hns"
     printf '{"build":"%s","version":"%s","hns":true}\n' "$BUILD" "$VERSION" > "$OFF/version.json"
 else
     echo "warning: build.h missing — version.json ships without a game version"

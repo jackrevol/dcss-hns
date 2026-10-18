@@ -21,6 +21,7 @@
 #include "god-passive.h"
 #include "ghost.h"
 #include "hints.h"
+#include "hns-desktop.h"
 #include "initfile.h"
 #include "invent.h"
 #include "item-prop.h"
@@ -490,6 +491,15 @@ NORETURN void end_game(scorefile_entry &se)
 
 NORETURN void game_ended(game_exit exit, const string &message)
 {
+#ifdef USE_TILE_LOCAL
+    // 원본 시작 메뉴로 돌아가도 저장·사망에 따른 변경을 즉시 반영합니다.
+    if (exit == game_exit::save || exit == game_exit::death
+        || exit == game_exit::win || exit == game_exit::leave
+        || exit == game_exit::quit)
+    {
+        hns_desktop_saved();
+    }
+#endif
     if (crawl_state.marked_as_won &&
         (exit == game_exit::death || exit == game_exit::leave))
     {

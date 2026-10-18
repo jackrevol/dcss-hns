@@ -1,0 +1,48 @@
+@font-face { font-family: CrawlMono; src: url('/desktop-assets/DejaVuSansMono.ttf') format('truetype'); font-display: swap; }
+body.desktop-client { background: #000; color: #babdb6; font-family: CrawlMono, Consolas, monospace; overflow: auto; --accent: #fce94f; --surface: #111; --surface2: #202020; }
+.desktop-client #app { width: 100%; max-width: none; height: 100%; min-height: 100vh; margin: 0; padding: 0; overflow: auto; }
+#desktop-manager { width: min(1100px, 100%); min-height: 100vh; margin: auto; padding: 24px 40px 20px; display: flex; flex-direction: column; font-size: 14px; line-height: 1.65; }
+.pc-title { padding-bottom: 20px; text-align: center; }
+.pc-title img { width: min(450px, 75%); height: auto; }
+.pc-title p { margin-top: 4px; font-size: 12px; letter-spacing: 3px; color: #babdb6; }
+.pc-title p span { margin: 0 8px; color: #555753; }
+.pc-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); flex: 1; gap: 32px; }
+.pc-menu { padding-right: 24px; border-right: 1px solid #555753; }
+#desktop-manager h1, #desktop-manager h2 { font-size: 16px; font-weight: normal; color: #fce94f; margin: 0 0 18px; }
+#desktop-manager button { font: inherit; color: #babdb6; border: 0; border-radius: 0; background: transparent; text-align: left; cursor: pointer; box-shadow: none; }
+.pc-menu button { display: flex; align-items: baseline; width: 100%; min-height: 34px; padding: 5px 6px; gap: 12px; }
+#desktop-manager button:hover, #desktop-manager button:focus-visible { color: #34e2e2; background: #171717; outline: 1px solid #555753; outline-offset: -1px; }
+#desktop-manager button:disabled { color: #555753; cursor: wait; }
+.pc-menu kbd { color: #fce94f; flex: 0 0 44px; font: inherit; }
+.pc-menu kbd::before { content: '['; color: #555753; }
+.pc-menu kbd::after { content: ']'; color: #555753; }
+.pc-menu hr { border: 0; border-top: 1px solid #333; margin: 14px 0; }
+.pc-details h2 { margin: 0 0 12px; }
+.pc-details p { margin-bottom: 24px; line-height: 1.9; }
+.pc-subtitle { color: #888a85; font-size: 12px; }
+.pc-footer { margin-top: 32px; border-top: 1px solid #555753; padding-top: 16px; font-size: 12px; }
+#desktop-notice { color: #eeeeec; min-height: 32px; }
+.pc-footer > div { display: flex; justify-content: space-between; gap: 20px; color: #888a85; }
+#desktop-cloud-status { color: #8ae234; }
+#desktop-playing { max-width: 850px; margin: 80px auto; text-align: center; font-size: 14px; line-height: 2; }
+#desktop-playing img { width: min(570px, 90%); }
+#desktop-playing h1 { font-size: 20px; font-weight: normal; color: #fce94f; margin: 40px 0 16px; }
+#native-save-status { color: #8ae234; margin-top: 32px; }
+/* 관리 기능은 같은 로직을 사용하되 PC에서는 원본 메뉴와 같은 사각 창으로 표시합니다. */
+.desktop-client .sheet-backdrop { align-items: center; padding: 32px; background: #000b; }
+.desktop-client .doc-card { width: 780px; max-width: 100%; max-height: 85vh; height: auto; border: 1px solid #888a85; border-radius: 0; background: #080808; box-shadow: none; }
+.desktop-client .doc-header { background: #171717; border-bottom: 1px solid #555753; padding: 12px 20px; }
+.desktop-client .doc-title { font: 15px CrawlMono, Consolas, monospace; color: #fce94f; }
+.desktop-client .settings-body { padding: 20px; font-size: 13px; line-height: 1.7; }
+.desktop-client .settings-body input, .desktop-client .rc-editor-text { font-family: inherit; border: 1px solid #555753; border-radius: 0; background: #111; color: #eeeeec; }
+.desktop-client .settings-btn, .desktop-client .rc-editor button { min-height: 32px; font: inherit; border: 1px solid #555753; border-radius: 0; background: #111; color: #babdb6; padding: 6px 12px; }
+.desktop-client .settings-btn:hover, .desktop-client .settings-btn:focus-visible { color: #34e2e2; border-color: #34e2e2; }
+.desktop-client .hns-loot-row { grid-template-columns: 1fr 100px 45px; gap: 16px; border-radius: 0; padding: 12px 0; border-bottom: 1px solid #242424; }
+.desktop-client .hns-loot-label small { color: #888a85; line-height: 1.5; }
+.desktop-client .hns-cloud-archive { border-radius: 0; background: transparent; border-bottom: 1px solid #333; }
+.desktop-client .rc-editor { inset: 5vh 8vw; border: 1px solid #888a85; border-radius: 0; background: #080808; }
+.desktop-client .rc-editor-header { color: #fce94f; border-bottom: 1px solid #555753; }
+@media (max-width: 950px) {
+  #desktop-manager { padding: 24px; }
+  .pc-layout { grid-template-columns: 225px minmax(0, 1fr); gap: 24px; }
+}

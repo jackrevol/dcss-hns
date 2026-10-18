@@ -15,6 +15,8 @@ import { getActiveControlSet } from './game/input/control-sets'
 import { getPref, setPref } from './prefs'
 import { loadSession } from './auth/session'
 import { staleShellReloadOnce } from './util/self-heal'
+import { buildDesktopManager, buildDesktopPlaying } from './views/desktop-manager'
+import { playDesktopGame, recoverDesktopGame } from './platform/native-game'
 
 type AppState = 'login' | 'lobby' | 'game'
 
@@ -28,6 +30,17 @@ let offlineLaunching = false
 
 export function initApp(appEl: HTMLElement): void {
   root = appEl
+  if (window.HnsDesktop?.native) {
+    document.body.classList.add('desktop-client')
+    void recoverDesktopGame().then(() => {
+      if (new URLSearchParams(location.search).has('manage')) showOfflineLobby()
+      else void showOfflineGame('')
+    }).catch(error => {
+      showFatal('PC 세이브 복구를 완료하지 못했습니다. 네이티브 저장 파일은 보존되어 있습니다. ' + String(error))
+      void window.HnsDesktop?.show()
+    })
+    return
+  }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       // Mobile suspension kills the socket *without* a close frame, leaving a
@@ -96,6 +109,10 @@ function showOfflineLobby(exit?: GameExit): void {
   conn = null
   state = 'lobby'
   clearGameStart()
+  if (window.HnsDesktop?.native) {
+    setView(buildDesktopManager(() => { void showOfflineGame('') }, exit?.message))
+    return
+  }
   setView(buildOfflineLobbyView(
     (name) => { void showOfflineGame(name) },
     () => showLogin(),
@@ -118,6 +135,32 @@ async function showOfflineGame(name: string): Promise<void> {
   if (offlineLaunching) return
   offlineLaunching = true
   try {
+    if (window.HnsDesktop?.native) {
+      let acquired = false
+      try {
+        await beginCloudGame(); acquired = true
+        state = 'game'
+        const playing = buildDesktopPlaying()
+        setView(playing.view)
+        const result = await playDesktopGame(name, playing.notice)
+        await endCloudGame(); acquired = false
+        if (!result.manage && !result.code) { await window.HnsDesktop.close(); return }
+        showOfflineLobby({ reason: result.code ? 'error' : 'saved', message: result.code
+          ? '게임 창이 종료되었습니다. 마지막 저장 상태를 복구했습니다.'
+          : '게임을 종료했습니다. 저장된 진행을 반영했습니다.' })
+      } catch (error) {
+        if (acquired) await endCloudGame()
+        // 저장 반영 실패 시 관리 기능을 열기 전에 네이티브 사본을 복구합니다.
+        try {
+          await recoverDesktopGame()
+          showOfflineLobby({ reason: 'error', message: error instanceof Error ? error.message : String(error) })
+        } catch (recovery) {
+          showFatal('PC 세이브를 보존했습니다. 앱을 다시 실행해 복구하세요. ' + String(recovery))
+          void window.HnsDesktop.show()
+        }
+      }
+      return
+    }
     let bootMod: typeof import('./offline/boot')
     try {
       bootMod = await import('./offline/boot')

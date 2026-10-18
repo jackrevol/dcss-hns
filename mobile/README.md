@@ -80,24 +80,55 @@ Android 앱, macOS 독립 앱, Windows/Linux/macOS 브라우저는 같은 계정
 
 ## Windows/Linux/macOS 독립 앱
 
-`npm run build:desktop`은 엔진과 UI를 포함한 독립 앱과 배포 압축 파일을 생성합니다.
+PC 앱은 원본 DCSS의 시작 메뉴·캐릭터 선택·SDL 타일 화면·키보드와 마우스
+조작을 그대로 사용합니다. 원본 시작 메뉴에 **F2: HNS settings / save management**
+진입점만 추가하며, 여기서 드랍 설정·옵션 파일·기록·세이브 백업/복원·클라우드
+동기화를 사용합니다. 관리 화면은 원본 로고와 고정폭 글꼴·메뉴 색상을 따릅니다.
+Android의 모바일 로비·터치 조작은 Android 앱에 유지합니다.
+
+`npm run build:desktop`은 SDL 엔진과 관리 UI를 포함한 독립 앱과 배포 압축 파일을 생성합니다.
 현재 호스트의 플랫폼/CPU를 기본으로 사용하며, `HNS_DESKTOP_PLATFORM`
-(`darwin`, `win32`, `linux`), `HNS_DESKTOP_ARCH`로 대상을 지정할 수 있습니다.
-릴리즈에서는 각 플랫폼의 호스트에서 패키징하고 오프라인 플레이를 검증합니다.
-macOS Apple Silicon 결과는 `build/desktop/DCSS-HNS-mac-arm64.zip`입니다.
-Windows x64는 `build/desktop/DCSS-HNS-windows-x64.zip`, Linux x64는
-`build/desktop/DCSS-HNS-linux-x64.tar.gz`입니다. 압축을 풀고 플랫폼에 맞는
+(`darwin`, `win32`, `linux`), `HNS_DESKTOP_ARCH`는 호스트와 일치해야 합니다.
+먼저 모든 서브모듈과 [네이티브 빌드 의존성](../crawl-ref/INSTALL.md)을 준비하세요.
+Windows는 MSYS2 MINGW64 셸에서 실행하며, Linux는 `LINUXDEPLOY`에
+linuxdeploy AppImage 경로를 지정합니다. Linux 게임 엔진은 추출한 AppDir로
+포함하므로 FUSE가 필요하지 않습니다. PC 빌드에는 WASM 엔진이 필요하지 않습니다.
+릴리즈에서는 각 플랫폼의 호스트에서 패키징하고 저장 기능·게임 데이터를 검증합니다.
+macOS Apple Silicon 결과는 `build/desktop/DCSS-HNS-<version>-mac-arm64.zip`입니다.
+Windows x64는 `build/desktop/DCSS-HNS-<version>-windows-x64.zip`, Linux x64는
+`build/desktop/DCSS-HNS-<version>-linux-x64.tar.gz`입니다. 압축을 풀고 플랫폼에 맞는
 `DCSS HNS.app`, `DCSS HNS.exe`, `DCSS HNS`를 실행합니다. 별도 웹 서버나 Node.js 없이
 오프라인 플레이와 앱 내 클라우드 동기화를 사용할 수 있습니다.
 게임 엔진·타일·초기 데이터가 앱에 미리 포함되어 별도 다운로드 버튼 없이
 바로 플레이할 수 있습니다. 로그인과 세이브는 앱 전용 사용자 데이터 폴더에 보관합니다.
-`npm run test:desktop`은 실제 엔진으로 오프라인 이어하기를 검증합니다.
+기존 앱과 같은 사용자 데이터 폴더·저장 형식·클라우드 로직을 사용합니다.
+SDL 엔진의 저장 체크포인트를 기존 IndexedDB에 반영하여 백업과 동기화에
+동일한 진행을 제공합니다. 비정상 종료 시 네이티브 사본을 먼저 복구하며,
+저장 반영을 확인하기 전에는 복구 사본을 지우지 않습니다.
+`npm run test:desktop`은 PC 관리 화면의 드랍 설정·백업/복원·클라우드 UI와
+포함한 원본 SDL 엔진·타일·폰트·데이터 초기화를 검증합니다.
 
 웹 클라이언트도 빌드 시 게임 데이터 전체를 설치 목록에 포함합니다.
 최초 접속/설치 시 자동으로 함께 캐시하며 별도 게임 데이터 다운로드는
 필요하지 않습니다. 웹의 최초 설치에는 인터넷이 필요하지만 설치 후에는
 인터넷 없이 다시 열고 플레이할 수 있습니다. `npm run test:bundled-web`은
 별도 다운로드 없이 설치한 웹 클라이언트의 완전 오프라인 이어하기를 검증합니다.
+
+## 버전 표기
+
+[version.json](version.json)의 원본 버전과 HNS 순번을 기준으로
+`0.35-a0-hns.1` 형식을 사용합니다. 자동 릴리즈는 마지막 게시 태그의
+순번을 증가시키고, 같은 커밋의 재빌드는 기존 버전을 재사용합니다.
+릴리즈 제목은 `DCSS HNS 0.35-a0-hns.1`, 태그는 `v0.35-a0-hns.1`이며
+파일명에는 `v`를 제외한 버전을 넣습니다. 순번 충돌을 막기 위해 플랫폼
+릴리즈 워크플로는 순서대로 실행합니다.
+
+개발 빌드의 기본 순번은 `version.json`에 있으며 `HNS_RELEASE_VERSION`으로
+지정할 수 있습니다. 엔진·Android·PC를 같은 값으로 빌드하세요.
+Android `versionName`과 원본 엔진의 표시 버전은 동일한 문자열을 사용합니다.
+플랫폼의 숫자 버전 필드는 `0.35.1`처럼 변환하고 Android `versionCode`는
+원본 주·부 버전과 순번을 조합해 다음 원본 버전에서도 증가하도록 합니다.
+전체 소스 압축 파일에는 재빌드에 사용할 `release-info.json`도 포함합니다.
 
 ## 기존 네이티브/터미널 엔진
 
@@ -239,10 +270,11 @@ artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lu
 소스를 포함한 배포용 소스 압축 파일을 생성합니다.
 
 **[Platform Release](../.github/workflows/release.yml)**는 `master`에 push한
-커밋의 **Build** 성공 후 이 워크플로를 재사용하고, 검증한 동일 UI·WASM 엔진을
-Windows x64, Linux x64, macOS Intel/Apple Silicon 앱으로 패키징합니다.
-모든 플랫폼의 빌드와 오프라인 플레이 검증이 성공하면
-`hns-<커밋 SHA 앞 12자리>` 태그로 릴리즈를 생성하여 APK, 데스크톱 압축 파일
+커밋의 **Build** 성공 후 이 워크플로를 재사용하고, 검증한 관리 UI와 같은 소스
+커밋에서 빌드한 원본 SDL 엔진을 Windows x64, Linux x64,
+macOS Intel/Apple Silicon 앱으로 패키징합니다.
+Android 오프라인 플레이와 PC 빌드·저장 기능·게임 데이터 검증이 성공하면
+`v0.35-a0-hns.<순번>` 태그로 릴리즈를 생성하여 APK, 데스크톱 압축 파일
 4개, 전체 대응 소스와 SHA-256 체크섬을 함께 게시합니다.
 수동 실행에서 `tag`를 비워 두면 선택한 브랜치의 커밋으로 새 릴리즈를 만들고,
 기존 태그를 지정하면 해당 태그의 커밋을 빌드합니다. 릴리즈를 직접 게시해도

@@ -66,6 +66,7 @@
 #include "view.h"
 #ifdef USE_TILE_LOCAL
  #include "windowmanager.h"
+ #include "syscalls.h"
 #endif
 #include "ui.h"
 #ifdef __ANDROID__
@@ -701,6 +702,26 @@ public:
 
         m_root->add_child(std::move(grid));
 
+#ifdef USE_TILE_LOCAL
+        // 원본 시작 메뉴에 HNS 관리 진입점만 추가합니다.
+        if (getenv("HNS_DESKTOP_MANAGE"))
+        {
+            auto manage = make_shared<MenuButton>();
+            manage->id = -2;
+            auto row = make_shared<Box>(Box::HORZ);
+            row->set_cross_alignment(Widget::Align::CENTER);
+            auto icon = make_shared<Image>();
+            icon->set_tile(tile_def(tileidx_gametype(GAME_TYPE_INSTRUCTIONS)));
+            icon->set_margin_for_sdl(0, 6, 0, 0);
+            row->add_child(icon);
+            row->add_child(make_shared<Text>(formatted_string(
+                "[F2] HNS settings / save management", LIGHTCYAN)));
+            manage->set_child(row);
+            manage->set_margin_for_sdl(0, 0, 10, 0);
+            m_root->add_child(manage);
+        }
+#endif
+
         string instructions_text;
         // TODO: these can overflow on console 80x24 and won't line-wrap, is
         // there any good solution to this? e.g.
@@ -866,6 +887,13 @@ void UIStartupMenu::on_show()
             menu_item_activated(GAME_TYPE_INSTRUCTIONS);
             return true;
         }
+#ifdef USE_TILE_LOCAL
+        else if (keyn == CK_F2 && getenv("HNS_DESKTOP_MANAGE"))
+        {
+            menu_item_activated(-2);
+            return true;
+        }
+#endif
         else if (keyn == CONTROL('P'))
         {
             replay_messages_during_startup();
@@ -937,6 +965,20 @@ void UIStartupMenu::on_show()
 
 void UIStartupMenu::menu_item_activated(int id)
 {
+#ifdef USE_TILE_LOCAL
+    if (id == -2)
+    {
+        if (const char *path = getenv("HNS_DESKTOP_MANAGE"))
+        {
+            if (FILE *file = fopen_u(path, "wb"))
+            {
+                fclose(file);
+                end(0);
+            }
+        }
+        return;
+    }
+#endif
     switch (id)
     {
     case GAME_TYPE_NORMAL:

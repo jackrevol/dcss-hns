@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: platform-release-${{ github.event.release.tag_name || inputs.tag || github.event.workflow_run.head_sha || github.sha }}
+  group: platform-release
   cancel-in-progress: false
 
 jobs:
@@ -32,32 +32,35 @@ jobs:
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ (github.event.release.tag_name || inputs.tag) && format('refs/tags/{0}', github.event.release.tag_name || inputs.tag) || github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Resolve the release tag and exact source commit
         id: release
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
-        run: |
-          sha="$(git rev-parse HEAD)"
-          tag="${RELEASE_TAG:-hns-${sha:0:12}}"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        run: node .github/scripts/resolve-release.mjs
 
   android:
     needs: release_ref
     uses: ./.github/workflows/mobile.yml
     with:
       ref: ${{ needs.release_ref.outputs.sha }}
+      version: ${{ needs.release_ref.outputs.version }}
 
   desktop:
     needs: [release_ref, android]
     name: Desktop ${{ matrix.platform }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 60
+    env:
+      HNS_RELEASE_VERSION: ${{ needs.release_ref.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -86,6 +89,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.release_ref.outputs.sha }}
+          submodules: recursive
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -97,11 +101,44 @@ jobs:
           path: mobile
       - name: Install desktop dependencies
         run: npm ci
-      # Use the shared dist verbatim; rebuilding the UI here would omit the engine.
-      - name: Package desktop app and archive
+      - uses: actions/setup-python@v5
+        if: runner.os != 'Windows'
+        with:
+          python-version: '3.12'
+      - name: Install native engine build dependencies
+        if: runner.os != 'Windows'
+        run: python -m pip install pyyaml
+      - name: Install Linux SDL and packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          python ../.github/workflows/deps.py --build-opts TILES=1 --appimage
+          echo 'LINUXDEPLOY=/tmp/linuxdeploy-x86_64.AppImage' >> "$GITHUB_ENV"
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          update: true
+          install: >-
+            base-devel zip
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-python-yaml
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-advancecomp
+      - name: Package Windows client with original SDL engine
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         env:
           HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
           HNS_DESKTOP_ARCH: ${{ matrix.arch }}
+        run: node scripts/build-desktop.mjs
+      # Keep the tested management UI; gameplay uses the native SDL engine.
+      - name: Package desktop app and archive
+        if: runner.os != 'Windows'
+        env:
+          HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
+          HNS_DESKTOP_ARCH: ${{ matrix.arch }}
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: node scripts/build-desktop.mjs
       - name: Install Linux runtime dependencies
         if: runner.os == 'Linux'
@@ -150,12 +187,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.release_ref.outputs.tag }}
           RELEASE_SHA: ${{ needs.release_ref.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.release_ref.outputs.version }}
         run: |
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release-assets/* --clobber
           else
             gh release create "$RELEASE_TAG" release-assets/* \
               --target "$RELEASE_SHA" \
-              --title "DCSS HNS $RELEASE_TAG" \
+              --title "DCSS HNS $RELEASE_VERSION" \
               --generate-notes --latest
           fi

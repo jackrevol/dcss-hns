@@ -13,7 +13,9 @@ elif [[ ! -f "$repo_dir/crawl-ref/source/contrib/lua/src/lua.h" ]]; then
     exit 1
 fi
 cd "$repo_dir/crawl-ref/source"
-make -j"${JOBS:-8}" WEBTILES=1 BUILD_LUA=1 FORCE_PKGCONFIG=1
+export HNS_RELEASE_VERSION="$(node "$mobile_dir/scripts/release-version.mjs")"
+export HNS_ENGINE_VERSION="$HNS_RELEASE_VERSION"
+make -j"${JOBS:-8}" WEBTILES=1 BUILD_LUA=1 FORCE_PKGCONFIG=1 SRC_VERSION="$HNS_RELEASE_VERSION"
 sh wasm/gen-objects.sh
 make -f wasm/Makefile.emscripten -j"${JOBS:-8}"
 if [[ "${WASM_JSPI:-0}" == 1 ]]; then

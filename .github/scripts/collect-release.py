@@ -12,14 +12,15 @@ def collect(artifacts: Path, destination: Path, tag: str) -> None:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", tag):
         raise ValueError("Release tag must be safe to use in asset filenames")
 
-    prefix = f"dcss-hns-{tag}"
+    version = tag.removeprefix("v")
+    prefix = f"dcss-hns-{version}"
     patterns = {
         "app-debug.apk": f"{prefix}-android-debug.apk",
-        "DCSS-HNS-windows-x64.zip": f"{prefix}-windows-x64.zip",
-        "DCSS-HNS-linux-x64.tar.gz": f"{prefix}-linux-x64.tar.gz",
-        "DCSS-HNS-mac-x64.zip": f"{prefix}-macos-x64.zip",
-        "DCSS-HNS-mac-arm64.zip": f"{prefix}-macos-arm64.zip",
-        "dcss-hns-source-*.tar.gz": None,
+        f"DCSS-HNS-{version}-windows-x64.zip": f"{prefix}-windows-x64.zip",
+        f"DCSS-HNS-{version}-linux-x64.tar.gz": f"{prefix}-linux-x64.tar.gz",
+        f"DCSS-HNS-{version}-mac-x64.zip": f"{prefix}-macos-x64.zip",
+        f"DCSS-HNS-{version}-mac-arm64.zip": f"{prefix}-macos-arm64.zip",
+        f"dcss-hns-{version}-source.tar.gz": f"{prefix}-source.tar.gz",
     }
     selected = []
     for pattern, name in patterns.items():

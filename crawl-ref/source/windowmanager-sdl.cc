@@ -26,6 +26,7 @@
 
 #include "cio.h"
 #include "files.h"
+#include "hns-desktop.h"
 #include "glwrapper.h"
 #include "libutil.h"
 #include "options.h"
@@ -116,10 +117,12 @@ static void _translate_window_event(const SDL_WindowEvent &sdl_event,
     switch (sdl_event.event)
     {
         case SDL_WINDOWEVENT_SHOWN:
+        case SDL_WINDOWEVENT_FOCUS_GAINED:
             tile_event.type = WME_ACTIVEEVENT;
             tile_event.active.gain = 1;
             break;
         case SDL_WINDOWEVENT_HIDDEN:
+        case SDL_WINDOWEVENT_FOCUS_LOST:
             tile_event.type = WME_ACTIVEEVENT;
             tile_event.active.gain = 0;
             break;
@@ -932,6 +935,11 @@ int SDLWrapper::send_textinput(wm_event *event)
 int SDLWrapper::wait_event(wm_event *event, int timeout)
 {
     SDL_Event sdlevent;
+    if (getenv("HNS_DESKTOP_CHECKPOINT"))
+    {
+        hns_desktop_checkpoint();
+        timeout = min(timeout, 250);
+    }
 
     if (!m_textinput_queue.empty())
     {
@@ -953,6 +961,11 @@ int SDLWrapper::wait_event(wm_event *event, int timeout)
     switch (sdlevent.type)
     {
     case SDL_WINDOWEVENT:
+        if (sdlevent.window.event == SDL_WINDOWEVENT_FOCUS_LOST
+            || sdlevent.window.event == SDL_WINDOWEVENT_HIDDEN)
+        {
+            hns_desktop_checkpoint(true);
+        }
         SDL_SetModState(KMOD_NONE);
         _translate_window_event(sdlevent.window, *event);
         break;

@@ -37,8 +37,9 @@ describe('native saves shared with apps and browsers',()=>{
   })
   it('never follows symlinks outside the managed save directory',()=>{
     const io=createNativeIO(home)
-    writeFileSync(join(home,'secret'),'private')
-    symlinkSync(join(home,'secret'),join(home,'crawl/link'))
+    mkdirSync(join(home,'outside'))
+    writeFileSync(join(home,'outside/secret'),'private','utf8')
+    symlinkSync(join(home,'outside'),join(home,'crawl/link'),process.platform==='win32'?'junction':'dir')
     expect(()=>nativeFiles(join(home,'crawl'))).toThrow(/심볼릭/)
   })
   it('excludes native regenerable caches and retains recovery packs',async()=>{

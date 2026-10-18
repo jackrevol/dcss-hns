@@ -21,10 +21,12 @@
   },
   "include": [
     "src",
-    "native"
+    "native",
+    "desktop"
   ],
   "exclude": [
     "src/**/*.test.ts",
-    "native/**/*.test.ts"
+    "native/**/*.test.ts",
+    "desktop/**/*.test.ts"
   ]
 }

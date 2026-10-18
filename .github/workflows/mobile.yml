@@ -8,6 +8,11 @@ on:
         description: Exact source commit to build for a release
         required: true
         type: string
+      version:
+        description: Shared release version, for example 0.35-a0-hns.1
+        required: false
+        default: ''
+        type: string
   push:
     paths: ['mobile/**', 'crawl-ref/**', '.gitmodules', '.github/workflows/mobile.yml']
   pull_request:
@@ -20,6 +25,8 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      HNS_RELEASE_VERSION: ${{ inputs.version || '' }}
     defaults:
       run:
         working-directory: mobile
@@ -28,6 +35,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
+          submodules: recursive
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

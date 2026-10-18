@@ -158,6 +158,11 @@ export function buildExportPackFile(files: SavedFile[], build: string | undefine
 // sheet: if a preview opens anyway, it opens in its own context instead of
 // replacing the app.
 export function downloadPackFile(file: File): void {
+  if (window.HnsDesktop?.native) {
+    void file.arrayBuffer().then(bytes => window.HnsDesktop!.exportFile(file.name, new Uint8Array(bytes)))
+      .catch(error => console.error('파일 저장 실패:', error))
+    return
+  }
   const url = URL.createObjectURL(file)
   const a = document.createElement('a')
   a.href = url
@@ -175,6 +180,7 @@ export function downloadPackFile(file: File): void {
 // Desktop keeps the plain download anchor. Returns false when the user
 // cancelled the share sheet (nothing left the device — no success notice).
 export async function sharePack(file: File, notify?: (text: string) => void): Promise<boolean> {
+  if (window.HnsDesktop?.native) return window.HnsDesktop.exportFile(file.name, new Uint8Array(await file.arrayBuffer()))
   if (isAndroidApp()) return exportAndroidFile(file)
   // Both fall-throughs to the anchor are announced in DEV: on device the
   // console is invisible, and a silent fallback is indistinguishable from

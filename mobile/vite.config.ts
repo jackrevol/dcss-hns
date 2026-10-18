@@ -187,6 +187,7 @@ export default defineConfig({
     sourcemap: false,
   },
   test: {
+    include: ['src/**/*.test.ts', 'native/**/*.test.ts', 'desktop/**/*.test.ts'],
     environmentOptions: {
       happyDOM: {
         settings: {

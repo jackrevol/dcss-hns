@@ -6,7 +6,7 @@ import { validateSavedFiles, type SavedFile } from '../src/offline/save-transfer
 
 export function atomicWrite(path: string, value: string | Uint8Array): void {
   const temporary = path + '.' + randomUUID() + '.tmp'
-  writeFileSync(temporary, value, { mode: 0o600 })
+  writeFileSync(temporary, value, { mode: 0o600, encoding: 'utf8' })
   try { renameSync(temporary, path) } finally { rmSync(temporary, { force: true }) }
 }
 export function nativeFiles(root: string): SavedFile[] {

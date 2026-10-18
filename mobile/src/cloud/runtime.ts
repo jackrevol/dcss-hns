@@ -109,7 +109,7 @@ export function beginCloudGame(): Promise<void> {
     } finally { starting = false }
   })
 }
-export function savedCheckpoint(): void {
+export function savedCheckpoint(delayMs = 60_000): void {
   if (!cloud.link || timer) return
   // Coalesce frequent checkpoints to limit full-pack bandwidth consumption.
   // This never delays the engine's local checkpoint.
@@ -121,13 +121,13 @@ export function savedCheckpoint(): void {
         await cloud.sync({ pushOnly: true })
       }
     }).catch(() => {})
-  }, 60_000)
+  }, delayMs)
 }
-export function endCloudGame(): void {
+export function endCloudGame(): Promise<void> {
   if (timer) { clearTimeout(timer); timer = undefined }
   cloud.cancelSync()
   provider.cancel()
-  void serial(async () => {
+  return serial(async () => {
     cloud.playing = false
     await releaseGame?.(); releaseGame = null
   }).then(() => syncIdle()).catch(() => {})

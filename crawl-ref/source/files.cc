@@ -13,6 +13,10 @@
 #include "AppHdr.h"
 
 #include "files.h"
+#include "hns-desktop.h"
+#ifdef USE_TILE_LOCAL
+#include "windowmanager.h"
+#endif
 
 #include "json.h"
 #include "json-wrapper.h"
@@ -2717,6 +2721,17 @@ void save_game(bool leave_game, const char *farewellmsg)
     // If just save, early out.
     if (!leave_game)
     {
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
+        // PC 클라우드 체크포인트에도 현재 층과 Lua·매크로 상태를 포함합니다.
+        if (getenv("HNS_DESKTOP_CHECKPOINT"))
+        {
+            clua.save_persist();
+            if (crawl_state.unsaved_macros)
+                macro_save();
+            if (!you.entering_level)
+                save_level(level_id::current());
+        }
+#endif
 #if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
         // Save everything before pause
         //
@@ -2757,6 +2772,48 @@ void save_game_state()
     if (crawl_state.seen_hups)
         save_game(true);
 }
+
+#ifdef USE_TILE_LOCAL
+void hns_desktop_checkpoint(bool background)
+{
+    const char *request = getenv("HNS_DESKTOP_CHECKPOINT");
+    if (!request || !*request)
+        return;
+    static bool pending = false;
+    pending = pending || background || file_exists(request);
+    if (!pending || crawl_state.saving_game || Options.no_save
+        || crawl_state.disables[DIS_SAVE_CHECKPOINTS]
+        || (!crawl_state.waiting_for_command && !crawl_state.waiting_for_ui)
+        || !you.save || !crawl_state.need_save || !you.on_current_level
+        || you.entering_level || crawl_state.generating_level)
+    {
+        return;
+    }
+    pending = false;
+    unlink_u(request);
+    save_game(false);
+    hns_desktop_saved();
+}
+
+void hns_desktop_saved()
+{
+    const char *request = getenv("HNS_DESKTOP_CHECKPOINT");
+    if (!request || !*request)
+        return;
+    unlink_u(request);
+    // 저장이 완전히 끝난 뒤에만 호스트에 읽기 가능한 상태를 알립니다.
+    const string ready = string(request) + ".ready";
+    if (FILE *file = fopen_u(ready.c_str(), "wb"))
+    {
+        fclose(file);
+        // 호스트의 복사가 끝날 때까지 게임 상태를 유지합니다. 호스트가
+        // 응답하지 않아도 최대 2초 뒤 입력을 다시 받으며 로컬 저장은 남습니다.
+        for (int attempt = 0; attempt < 200 && file_exists(ready); ++attempt)
+            wm->delay(10);
+        unlink_u(ready.c_str());
+    }
+}
+#endif
 
 static bool _bones_save_individual_levels(branch_type branch, bool store)
 {
