@@ -1,0 +1,77 @@
+name: Mobile Android
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['mobile/**', 'crawl-ref/**', '.gitmodules', '.github/workflows/mobile.yml']
+  pull_request:
+    paths: ['mobile/**', 'crawl-ref/**', '.gitmodules', '.github/workflows/mobile.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential flex bison pkg-config python3-yaml libncurses-dev libpng-dev libsqlite3-dev zlib1g-dev
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Install UI dependencies and check
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+      - name: Install Emscripten 5.0.7
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 5.0.7
+          "$RUNNER_TEMP/emsdk/emsdk" activate 5.0.7
+      - name: Build this repository's HNS engine and tiles
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          JOBS=4 npm run build:engine
+      - name: Build UI and verify offline play
+        run: |
+          npm run build
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - name: Build Android APK
+        run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+        working-directory: mobile/android
+      - name: Package complete corresponding source
+        run: npm run package:source
+      - name: Upload APK and complete source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: dcss-hns-mobile-android
+          path: |
+            mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            mobile/android/app/build/outputs/source/*.tar.gz
+          if-no-files-found: error
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-test-results
+          path: mobile/test-results/
+          if-no-files-found: ignore

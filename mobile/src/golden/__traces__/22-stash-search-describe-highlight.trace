@@ -1,0 +1,19 @@
+start | overlay:none | shows:map,log,touch
+#2 init_input type=messages tag=stash_search
+  = overlay:none | shows:map,log,touch | textinput
+#4 close_input
+  = overlay:none | shows:map,log,touch
+#5 menu tag=stash "0 matches: only useless items f…" items=0
+  = overlay:full text="0 matches: only useless items found; pr…" | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#8 close_menu
+  = overlay:none | shows:map,log,touch
+#12 menu tag=stash "1 match: view [toggle: !], by t…" items=1
+  = overlay:full text="1 match: view [toggle: !], by type [/],…" items=1 | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#19 ui-push type=describe-item
+  = overlay:full text="The +7 scale mail of Ulaits {Death, Har…" | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#20 ui-pop
+  = overlay:full text="1 match: view [toggle: !], by type [/],…" items=1 | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#21 close_menu
+  = overlay:none | shows:map,log,touch
+#24 input_mode mode=1
+  → {"msg":"input","text":"I"}

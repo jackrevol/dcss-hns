@@ -1,0 +1,34 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'io.github.jackrevol.dcsshns'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'io.github.jackrevol.dcsshns'
+        minSdk 23
+        targetSdk 36
+        versionCode providers.gradleProperty('hnsVersionCode').getOrElse('1').toInteger()
+        versionName providers.gradleProperty('hnsVersionName').getOrElse('0.35-a0-hns')
+    }
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/webAssets')
+}
+
+tasks.register('prepareWebAssets', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'scripts/prepare-android.mjs'
+    inputs.dir '../../dist'
+    inputs.files '../../LICENSE', '../../../LICENSE', '../../ATTRIBUTION.md', '../../scripts/prepare-android.mjs'
+    outputs.dir layout.buildDirectory.dir('generated/webAssets')
+}
+tasks.named('preBuild').configure { dependsOn 'prepareWebAssets' }
+
+dependencies {
+    implementation 'androidx.activity:activity:1.10.1'
+    implementation 'androidx.webkit:webkit:1.14.0'
+}

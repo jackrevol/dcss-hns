@@ -1,0 +1,15 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+.vitest/
+.playwright/
+recordings/
+.env*.local
+public/offline/
+public/gamedata/local/
+android/.gradle/
+android/local.properties
+android/**/build/
+test-results/
+playwright-report/

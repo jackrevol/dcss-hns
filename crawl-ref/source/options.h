@@ -790,6 +790,13 @@ public:
                                     // menu.
     bool        restart_after_save; // .. or on save
     bool        hns_revival;
+    int         hns_floor_item_rate;
+    int         hns_item_quality;
+    int         hns_item_min_level;
+    int         hns_good_item_chance;
+    int         hns_randart_chance;
+    int         hns_gold_amount;
+    int         hns_consumable_amount;
     bool        newgame_after_quit; // override the restart_after_game behaviour
                                     // to always start a new game on quit.
 

@@ -1,0 +1,33 @@
+{
+  "description": "Ctrl-F stash search for 'death' → useless-only menu, = shows it, ! toggles view, a describes a randart with the Death ego (search match highlighted in the body as <lightcyan>Death<lightgrey>:, stash.cc examine_index annotate_string), Esc, Esc. Wizard-created item, so the body carries the wizard-only search/colouring prefix lines",
+  "captured_from": "offline engine 49bcc303 (DCSS 0.35-a0) on 2026-10-05",
+  "messages": [
+    {"msg":"input_mode","mode":0},
+    {"msg":"msgs","messages":[{"text":"<cyan>Search for what [Enter for \"death\", or ? for help]? <lightgrey>","turn":0,"channel":2}]},
+    {"msg":"init_input","type":"messages","tag":"stash_search","historyId":"0x1cb1d8","prefill":"","select_prefill":false,"maxlen":399,"size":15},
+    {"msg":"text_cursor","enabled":true},
+    {"msg":"close_input"},
+    {"msg":"menu","ui-centred":false,"tag":"stash","flags":262722,"last_hovered":-1,"title":{"text":"<white>0 matches<lightgrey>: only useless items found; press <white>=<lightgrey> to show.                    <lightgrey>"},"more":"<lightgrey>[<white>Up<lightgrey>|<white>Down<lightgrey>] select  [<white>PgDn<lightgrey>|<white>><lightgrey>] page down  [<white>PgUp<lightgrey>|<white><<<lightgrey>] page up  [<white>Esc<lightgrey>] exit<lightgrey>        <lightgrey>[<white>XXX<lightgrey>]<lightgrey>","alt_more":"","total_items":0,"chunk_start":0,"items":[]},
+    {"msg":"text_cursor","enabled":false},
+    {"msg":"msgs","rollback":1,"messages":[{"text":"<cyan>Search for what [Enter for \"death\", or ? for help]? <lightgrey>death<lightgrey>","turn":0,"channel":2}]},
+    {"msg":"close_menu"},
+    {"msg":"close_all_menus"},
+    {"msg":"close_all_menus"},
+    {"msg":"menu_scroll","first":0,"last_hovered":0,"force":false},
+    {"msg":"menu","ui-centred":false,"tag":"stash","flags":262722,"last_hovered":0,"title":{"text":"<white>1 match<lightgrey>: <white>view  <lightgrey> [toggle: <white>!<lightgrey>], by <white>type<lightgrey> [<white>/<lightgrey>], <white>show<lightgrey> useless & duplicates [<white>=<lightgrey>]<lightgrey>  "},"more":"<lightgrey>[<white>Up<lightgrey>|<white>Down<lightgrey>] select  [<white>PgDn<lightgrey>|<white>><lightgrey>] page down  [<white>PgUp<lightgrey>|<white><<<lightgrey>] page up  [<white>Esc<lightgrey>] exit<lightgrey>        <lightgrey>[<white>XXX<lightgrey>]<lightgrey>","alt_more":"","total_items":1,"chunk_start":0,"items":[{"text":" a - [right here] the +7 scale mail of Ulaits {Death, Harm rC+ Will+}","q":1,"colour":8,"hotkeys":[97],"level":2,"tiles":[{"t":4003,"tex":4},{"t":4151,"tex":4}]}]},
+    {"msg":"map","cells":[{"x":-4,"y":-7,"mf":26},{"x":-6,"y":-6,"mf":26},{"x":-4,"y":-6,"mf":26},{"mf":26},{"x":-6,"y":-5,"mf":26},{"x":-3,"y":-5,"mf":26},{"mf":26},{"x":-2,"y":-4,"mf":26},{"x":0,"y":-3,"mf":26},{"x":-5,"y":-2,"mf":26},{"mf":26},{"x":-4,"y":-1,"mf":26},{"mf":26},{"x":-2,"y":0,"mf":26}]},
+    {"msg":"update_menu","more":"<lightgrey>[<white>Up<lightgrey>|<white>Down<lightgrey>] select  [<white>PgDn<lightgrey>|<white>><lightgrey>] page down  [<white>PgUp<lightgrey>|<white><<<lightgrey>] page up  [<white>Esc<lightgrey>] exit<lightgrey>        <lightgrey>[<white>XXX<lightgrey>]<lightgrey>","alt_more":""},
+    {"msg":"update_menu","more":"<lightgrey>[<white>Up<lightgrey>|<white>Down<lightgrey>] select  [<white>PgDn<lightgrey>|<white>><lightgrey>] page down  [<white>PgUp<lightgrey>|<white><<<lightgrey>] page up  [<white>Esc<lightgrey>] exit<lightgrey>        <lightgrey>[<white>XXX<lightgrey>]<lightgrey>","alt_more":""},
+    {"msg":"update_menu_items","chunk_start":0,"items":[{"text":" a - [right here] the +7 scale mail of Ulaits {Death, Harm rC+ Will+}","q":1,"colour":8,"hotkeys":[97],"level":2,"tiles":[{"t":4003,"tex":4},{"t":4151,"tex":4}]}]},
+    {"msg":"update_menu","title":{"text":"<white>1 match<lightgrey>: <white>view  <lightgrey> [toggle: <white>!<lightgrey>], by <white>type<lightgrey> [<white>/<lightgrey>], <white>show<lightgrey> useless & duplicates [<white>=<lightgrey>]<lightgrey>  "}},
+    {"msg":"menu_scroll","first":0,"last_hovered":0,"force":true},
+    {"title":"The +7 scale mail of Ulaits {Death, Harm rC+ Will+}.","body":"<lightgrey>\n\nA leather suit covered with metal plates attached to each other in overlapping rows to provide full protection, but at the cost of reduced freedom of movement. \n\nBase armour rating: 6       Encumbrance rating: 10\n\n<lightcyan>Death<lightgrey>:     It empowers your Necromancy spells and improves their success rate.\n           When you cast a Necromancy spell, it may drain the life force of\n           susceptible adjacent enemies to heal you; the chance and power of\n           this effect depend on the spell's level.\nHarm:      It increases damage dealt and taken.\nrC+:       It protects you from cold.\nWill+:     It increases your willpower.\n\nIt cannot be enchanted further.\n\nThis armour is completely useless to you: that is too small for you to equip!\n\nThis ancient artefact cannot be changed by magic or mundane means.\n\nStash search prefixes: {artefact} {artifact} {Death} {body armour} {body armor}\nMenu/colouring prefixes: identified useless_item artefact armour\n_________________\n\n<darkgrey>“Nought can Deform the Human race\n Like to the Armours iron brace”\n    -William Blake, “Auguries of Innocence”, 99-100. 1803.\n<lightgrey>SPELLSET_PLACEHOLDER","spellset":[],"actions":"","tiles":[{"t":3099,"tex":2},{"t":4003,"tex":4},{"t":4151,"tex":4}],"msg":"ui-push","type":"describe-item","ui-centred":false,"generation_id":10},
+    {"msg":"ui-pop"},
+    {"msg":"close_menu"},
+    {"msg":"close_all_menus"},
+    {"msg":"close_all_menus"},
+    {"msg":"input_mode","mode":1},
+    {"msg":"map","cells":[{"x":-4,"y":-7,"mf":26},{"x":-6,"y":-6,"mf":26},{"x":-4,"y":-6,"mf":26},{"mf":26},{"x":-6,"y":-5,"mf":26},{"x":-3,"y":-5,"mf":26},{"mf":26},{"x":-2,"y":-4,"mf":26},{"x":0,"y":-3,"mf":26},{"x":-5,"y":-2,"mf":26},{"mf":26},{"x":-4,"y":-1,"mf":26},{"mf":26},{"x":-2,"y":0,"mf":26}]}
+  ],
+  "expected": {"uiPushTypes": ["describe-item"]}
+}

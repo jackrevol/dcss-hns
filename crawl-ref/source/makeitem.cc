@@ -15,12 +15,14 @@
 #include "colour.h"
 #include "describe.h"
 #include "dungeon.h"
+#include "hns-loot.h"
 #include "item-name.h"
 #include "item-prop.h"
 #include "item-status-flag-type.h"
 #include "items.h"
 #include "libutil.h" // map_find
 #include "mpr.h"
+#include "options.h"
 #include "randbook.h"
 #include "random-pick.h" // talismans
 #include "skills.h" // is_removed_skill
@@ -2029,7 +2031,7 @@ int items(bool allow_uniques,
           bool acquirement,
           string custom_name,
           CrawlHashTable const *fixed_props,
-          monster *mons)
+          monster *mons, bool hns_loot)
 {
     rng::subgenerator item_rng;
 
@@ -2045,6 +2047,16 @@ int items(bool allow_uniques,
         return NON_ITEM;
 
     item_def& item(env.item[p]);
+
+    if (hns_loot)
+    {
+        item_level = hns_loot_level(item_level);
+        if (Options.hns_good_item_chance > 0
+            && x_chance_in_y(Options.hns_good_item_chance, 100))
+        {
+            item_level = ISPEC_GOOD_ITEM;
+        }
+    }
 
     const bool force_good = item_level >= ISPEC_GIFT;
 
@@ -2091,6 +2103,15 @@ int items(bool allow_uniques,
 
         if (one_chance_in(275) && !x_chance_in_y(item_level, 35))
             item.base_type = OBJ_BAUBLES;
+    }
+
+    if (hns_loot && Options.hns_randart_chance > 0
+        && (item.base_type == OBJ_WEAPONS || item.base_type == OBJ_ARMOUR
+            || item.base_type == OBJ_JEWELLERY
+            || item.base_type == OBJ_TALISMANS)
+        && x_chance_in_y(Options.hns_randart_chance, 100))
+    {
+        item_level = ISPEC_RANDART;
     }
 
     ASSERT(force_type == OBJ_RANDOM
@@ -2209,6 +2230,17 @@ int items(bool allow_uniques,
             item.quantity += random2(item_level);
         }
         break;
+    }
+
+    if (hns_loot && (item.base_type == OBJ_GOLD
+                    || item.base_type == OBJ_POTIONS
+                    || item.base_type == OBJ_SCROLLS
+                    || item.base_type == OBJ_MISSILES))
+    {
+        const int percent = item.base_type == OBJ_GOLD
+                            ? Options.hns_gold_amount
+                            : Options.hns_consumable_amount;
+        item.quantity = max(1, hns_scale_loot(item.quantity, percent, SHRT_MAX));
     }
 
     if (item_has_invalid_brand(item))

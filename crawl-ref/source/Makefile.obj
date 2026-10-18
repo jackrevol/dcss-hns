@@ -84,6 +84,7 @@ god-wrath.o \
 hash.o \
 hints.o \
 hns-revival.o \
+hns-loot.o \
 hiscores.o \
 initfile.o \
 invent.o \
@@ -315,6 +316,7 @@ catch2-tests/test_describe.o \
 catch2-tests/test_english.o \
 catch2-tests/test_files.o \
 catch2-tests/test_items.o \
+catch2-tests/test_hns_loot.o \
 catch2-tests/test_mon-util.o \
 catch2-tests/test_ng-init-branches.o \
 catch2-tests/test_player.o \

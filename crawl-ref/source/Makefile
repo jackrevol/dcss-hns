@@ -1348,7 +1348,7 @@ STATICFILES = $(TILEIMAGEFILES:%=webserver/game_data/static/%.png) \
 $(TILEINFOJS:%=$(RLTILES)/tileinfo-%.js): build-rltiles
 
 webserver/webtiles/version.txt: .ver
-	@git describe $(MERGE_BASE) > webserver/webtiles/version.txt
+	@(git describe $(MERGE_BASE) 2>/dev/null || cat util/release_ver) > $@
 
 webserver/game_data/static/%.js: $(RLTILES)/%.js
 	$(QUIET_COPY)$(COPY) $< webserver/game_data/static/

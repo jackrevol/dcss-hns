@@ -1,0 +1,25 @@
+# Intentionally no rules. Cloudflare Pages serves real files in this deploy
+# directly; anything not on disk falls through to Pages' native 404.
+#
+# Do NOT add a catch-all SPA rewrite (`/* /index.html 200`). This app has no
+# client-side router — `/` is the only HTML entry, and about.html / changelog.html
+# / support.html are real files — so a path that isn't on disk genuinely doesn't
+# exist and should 404. A catch-all is actively harmful here: when an installed
+# PWA still points at an old /assets/index-<oldhash>.js after a redeploy (the
+# hash rotates every build), the catch-all answers that dead URL with index.html
+# as text/html + HTTP 200. The browser then tries to evaluate HTML as an ES
+# module, fails to parse, and renders a blank white page — turning a recoverable
+# "stale asset, reload me" into a silent brick.
+#
+# A previous version tried to force misses to 404 with lines like
+# `/assets/* /index.html 404`. Cloudflare Pages only honours 200/301/302/303/
+# 307/308 statuses in _redirects, so those 404 rules were silently dropped and
+# every miss fell through to the catch-all anyway.
+#
+# NOTE: removing the catch-all here was NOT enough. Pages infers SPA mode from
+# the *absence of a 404.html file*, independent of _redirects, and kept
+# serving index.html (200, text/html) for every miss — and the /assets/*
+# _headers rule stamped that fallback HTML with a one-year immutable
+# Cache-Control, permanently bricking installed PWAs that requested a
+# rotated-out asset hash after a deploy. public/404.html exists to switch
+# that fallback off; misses only 404 correctly while it ships in the deploy.

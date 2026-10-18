@@ -1,0 +1,28 @@
+{
+  "name": "dcss-hns-mobile",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc",
+    "build:engine": "bash scripts/build-engine.sh",
+    "build:android": "bash scripts/build-android.sh",
+    "test:e2e": "node scripts/test-offline.mjs",
+    "package:source": "node scripts/package-source.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "happy-dom": "^20.11.2",
+    "typescript": "^7.0.2",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.7"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

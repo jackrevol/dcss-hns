@@ -1,0 +1,19 @@
+start | overlay:none | shows:map,log,touch
+#2 init_input type=messages tag=stash_search
+  = overlay:none | shows:map,log,touch | textinput
+#4 close_input
+  = overlay:none | shows:map,log,touch
+#6 menu tag=stash "2 matches: view [toggle: !], by…" items=2
+  = overlay:full text="2 matches: view [toggle: !], by type [/…" items=2 | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#14 ui-push type=describe-item
+  = overlay:full text="a - a +0 robe (worn).A large, loose-fit…" | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#15 ui-pop
+  = overlay:full text="2 matches: view [toggle: !], by type [/…" items=2 | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#17 ui-push type=describe-item
+  = overlay:full text="The +3 battleaxe of the Shallot {flame,…" | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#18 ui-pop
+  = overlay:full text="2 matches: view [toggle: !], by type [/…" items=2 | shows:bar[⎋ ! = /] | view:menu-bar | touch:overlay-mode
+#19 close_menu
+  = overlay:none | shows:map,log,touch
+#22 input_mode mode=1
+  → {"msg":"input","text":"I"}

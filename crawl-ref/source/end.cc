@@ -45,6 +45,11 @@
 #include <android/log.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+// wasm/pocketzot-ipc.h (definition emitted via tileweb.cc's single include).
+extern "C" bool pocketzot_persist();
+#endif
+
 using namespace ui;
 
 /**
@@ -195,6 +200,17 @@ NORETURN void end(int exit_code, bool print_error, const char *format, ...)
     if (exit_code)
         CrawlIsCrashing = true;
 
+#ifdef __EMSCRIPTEN__
+    // Final IDBFS flush: catches everything a commit doesn't — the unlinked
+    // save after a death (or it would resurrect next boot), morgue/scores/
+    // bones, and the closed sqlite DBs (databaseSystemShutdown ran above).
+    // The C++ side is exiting but the JS runtime is healthy, so this is safe
+    // even on the error paths. Whole-mount flush only — the checkpoint
+    // announcement is commit()'s; see pocketzot_checkpoint in
+    // wasm/pocketzot-ipc.h.
+    pocketzot_persist();
+#endif
+
 #ifdef DEBUG_GLOBALS
     delete real_env;         real_env = 0;
     delete real_crawl_state; real_crawl_state = 0;
@@ -217,6 +233,33 @@ void delete_files()
     you.save = 0;
 }
 
+#ifdef __EMSCRIPTEN__
+// Land a game ending in IndexedDB before the player is asked for a key.
+// delete_files()'s unlink exists only in wasm memory until a flush (the
+// mount is not autoPersist, wasm/pre.js), where upstream's ::unlink is on
+// disk here and now. Every screen between the ending and end()'s final
+// flush -- more(), the inventory, the game-over popup, "Hit any key" -- was
+// a window where closing the app brought the character back from its last
+// checkpoint. The checkpoint path can't cover it: _maybe_checkpoint
+// (tileweb.cc) refuses once you.save is gone.
+//
+// A landed flush is announced to the client as `ending` (exit_reason's
+// type/message pair, sent now rather than at process exit) so the client's
+// own records close with the disk; a failed flush announces nothing, so the
+// client can never be ahead of it. Consumer side: PocketZot src/ws/types.ts.
+static void _persist_ending(const string &reason, const string &message = "")
+{
+    if (!pocketzot_persist())
+    {
+        mprf(MSGCH_ERROR, "Failed to write the game's end to storage.");
+        return;
+    }
+#ifdef USE_TILE_WEB
+    tiles.send_ending(reason, message);
+#endif
+}
+#endif
+
 NORETURN void screen_end_game(string text, game_exit exit)
 {
 #ifdef USE_TILE_WEB
@@ -224,6 +267,11 @@ NORETURN void screen_end_game(string text, game_exit exit)
 #endif
     crawl_state.cancel_cmd_all();
     delete_files();
+#ifdef __EMSCRIPTEN__
+    // "quit" is upstream's value (send_exit_reason above), not a choice:
+    // hints.cc reaches here with a death or a win too.
+    _persist_ending("quit");
+#endif
 
     if (!text.empty())
         ui::message(text, "", "<cyan>Hit any key to exit...</cyan>", true);
@@ -328,6 +376,15 @@ NORETURN void end_game(scorefile_entry &se)
 #endif
 
     save_game_prefs();
+
+#ifdef __EMSCRIPTEN__
+    // Scores, logfile, bones, morgue and prefs are all written by now, so
+    // one flush lands the whole ending along with the unlink. Reason and
+    // blurb are the pair send_exit_reason sends below; re-derived here
+    // rather than borrowing `reason`, whose #if guard differs from ours.
+    _persist_ending(_exit_type_to_string(exit_reason),
+                    hiscores_format_single_long(se, true));
+#endif
 
     if (!crawl_state.seen_hups)
         more();

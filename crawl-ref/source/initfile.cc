@@ -795,6 +795,13 @@ const vector<GameOption*> game_options::build_options_list()
         new DisabledGameOption({"messaging"}),
 #endif
         new BoolGameOption(SIMPLE_NAME(hns_revival), true),
+        new IntGameOption(SIMPLE_NAME(hns_floor_item_rate), 300, 0, 1000),
+        new IntGameOption(SIMPLE_NAME(hns_item_quality), 200, 0, 1000),
+        new IntGameOption(SIMPLE_NAME(hns_item_min_level), 0, 0, 50),
+        new IntGameOption(SIMPLE_NAME(hns_good_item_chance), 0, 0, 100),
+        new IntGameOption(SIMPLE_NAME(hns_randart_chance), 0, 0, 100),
+        new IntGameOption(SIMPLE_NAME(hns_gold_amount), 100, 1, 1000),
+        new IntGameOption(SIMPLE_NAME(hns_consumable_amount), 100, 1, 1000),
 #ifdef DGAMELAUNCH
         new DisabledGameOption(
             {"name_bypasses_menu", "restart_after_save", "newgame_after_quit",
@@ -5550,6 +5557,16 @@ static void _write_minimap_colours()
 void game_options::write_webtiles_options(const string& name)
 {
     tiles.json_open_object(name);
+
+    tiles.json_open_object("hns_loot");
+    tiles.json_write_int("hns_floor_item_rate", hns_floor_item_rate);
+    tiles.json_write_int("hns_item_quality", hns_item_quality);
+    tiles.json_write_int("hns_item_min_level", hns_item_min_level);
+    tiles.json_write_int("hns_good_item_chance", hns_good_item_chance);
+    tiles.json_write_int("hns_randart_chance", hns_randart_chance);
+    tiles.json_write_int("hns_gold_amount", hns_gold_amount);
+    tiles.json_write_int("hns_consumable_amount", hns_consumable_amount);
+    tiles.json_close_object();
 
     _write_colour_list(hp_colour, "hp_colour");
     _write_colour_list(mp_colour, "mp_colour");
