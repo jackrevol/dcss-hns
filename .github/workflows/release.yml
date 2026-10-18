@@ -124,7 +124,6 @@ jobs:
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-python-yaml
             mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-advancecomp
       - name: Package Windows client with original SDL engine
         if: runner.os == 'Windows'
         shell: msys2 {0}
