@@ -1,11 +1,11 @@
 import { bundledGameVersion } from '../offline/bundled-game'
 import { acquireOfflineOwnership } from './ownership'
 import { ARTIFACT_CACHE, cachedEngineBuild } from '../offline/artifact-store'
-import { readOfflineFiles, replaceOfflineFiles } from '../offline/save-transfer'
-import { createSupabaseProvider, linkCloudAccount } from './supabase-provider'
+import { packSave, readOfflineFiles, replaceOfflineFiles } from '../offline/save-transfer'
+import { cloudAccount, createSupabaseProvider, linkCloudAccount } from './supabase-provider'
 import { snapshot } from './snapshot'
 import { cloudStore } from './store'
-import { CloudBlockedError, CloudSynchronizer } from './sync'
+import { CloudBlockedError, CloudSynchronizer, type CloudDirection } from './sync'
 
 async function installedBuild(): Promise<string | undefined> {
   try {
@@ -22,6 +22,11 @@ export const cloud = new CloudSynchronizer(provider, {
     return snapshot(files, build)
   },
   replace: value => replaceOfflineFiles(value.files),
+  async compatible(value) {
+    const desktop = window.HnsDesktop
+    if (!desktop?.native || !desktop.checkSaveCompatibility) return false
+    return desktop.checkSaveCompatibility(packSave(value.files, { exportedAt: '', build: value.build }))
+  },
   ...cloudStore,
 })
 
@@ -38,8 +43,14 @@ function serial<T>(action: () => Promise<T>): Promise<T> {
   return result
 }
 const lease = acquireOfflineOwnership
+function linkDesktopAccount(): void {
+  if (window.HnsDesktop?.native && cloudAccount()) linkCloudAccount()
+}
 function init(): Promise<void> {
-  if (!initialized) initialized = cloud.initialize().catch(e => { initialized = undefined; throw e })
+  if (!initialized) initialized = Promise.resolve().then(async () => {
+    linkDesktopAccount()
+    await cloud.initialize()
+  }).catch(e => { initialized = undefined; throw e })
   if (!watching) {
     watching = true
     const retry = (): void => {
@@ -65,13 +76,21 @@ export function syncIdle(options: Parameters<CloudSynchronizer['sync']>[0] = {})
     const release = await lease()
     try {
       if (starting) return
-      await cloud.sync(options)
+      await cloud.sync({ latest: !!window.HnsDesktop?.native, ...options })
     } finally { await release() }
   })
+}
+// 시작 시 네트워크 대기에 상한을 두어 오프라인에서도 로컬로 플레이합니다.
+export async function prepareDesktopCloud(): Promise<void> {
+  const timeout = setTimeout(() => { cloud.cancelSync(); provider.cancel() }, 4000)
+  try { await syncIdle() }
+  catch { /* 동기화 상태는 클라우드 메뉴에 표시하고 로컬 게임은 시작합니다. */ }
+  finally { clearTimeout(timeout) }
 }
 export function refreshCloudAccount(): Promise<void> {
   return serial(async () => {
     if (cloud.playing || starting) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    linkDesktopAccount()
     const current = await provider.status()
     if (current?.key !== cloud.link?.key) await cloud.initialize()
     initialized = Promise.resolve()
@@ -85,6 +104,20 @@ export async function connectCloudAccount(): Promise<void> {
     initialized = Promise.resolve()
   })
   await syncIdle()
+}
+export function transferCloudSaves(direction: CloudDirection): Promise<void> {
+  if (starting) return Promise.reject(new CloudBlockedError('게임을 먼저 종료하세요.'))
+  return serial(async () => {
+    if (starting || cloud.playing) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    const release = await lease()
+    try {
+      // 방향 선택 자체가 계정 연결 의사입니다. 연결 중에는 병합을 실행하지 않습니다.
+      linkCloudAccount()
+      await cloud.initialize()
+      initialized = Promise.resolve()
+      await cloud.transfer(direction)
+    } finally { await release() }
+  })
 }
 export function disconnectCloudAccount(): Promise<void> {
   return serial(async () => {
@@ -118,7 +151,7 @@ export function savedCheckpoint(delayMs = 60_000): void {
     void serial(async () => {
       if (cloud.playing && cloud.link && !starting) {
         cloud.pending()
-        await cloud.sync({ pushOnly: true })
+        await cloud.sync({ pushOnly: true, latest: !!window.HnsDesktop?.native })
       }
     }).catch(() => {})
   }, delayMs)

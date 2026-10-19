@@ -1,5 +1,5 @@
 import { acquireOfflineOwnership, recoverOfflineOwnership } from '../cloud/ownership'
-import { cloud, connectCloudAccount, disconnectCloudAccount, initializeCloud, refreshCloudAccount, restoreCloudArchive, syncIdle } from '../cloud/runtime'
+import { cloud, disconnectCloudAccount, initializeCloud, prepareDesktopCloud, refreshCloudAccount, restoreCloudArchive, transferCloudSaves } from '../cloud/runtime'
 import { cloudAccount, signInCloud, signUpCloud } from '../cloud/supabase-provider'
 import { cloudStore } from '../cloud/store'
 import { deleteGameRecord, readGameRecords, readMorgueText, sortRecords } from '../offline/game-records'
@@ -73,12 +73,11 @@ export async function desktopAction(action: DesktopAction): Promise<DesktopActio
       if (action.kind === 'cloud-signup') await signUpCloud(username, password)
       else await signInCloud(username, password)
       await refreshCloudAccount()
-      return ok('Signed in. Link your saves to enable synchronization.')
+      await prepareDesktopCloud()
+      return ok('', { reload: true })
     }
-    case 'cloud-link': await connectCloudAccount(); return ok('This device is linked to your account.')
-    case 'cloud-sync': await syncIdle(); return ok('Synchronization finished.')
-    case 'cloud-local': await syncIdle({ choice: 'local' }); return ok('Local progress selected for conflicting files.')
-    case 'cloud-remote': await syncIdle({ choice: 'remote' }); return ok('Cloud progress selected for conflicting files.', { reload: true })
+    case 'cloud-upload': await transferCloudSaves('upload'); return ok('Local -> Cloud complete. Your local saves were uploaded.')
+    case 'cloud-download': await transferCloudSaves('download'); return ok('Cloud -> Local complete. Your cloud saves are ready to play.', { reload: true })
     case 'cloud-logout': await disconnectCloudAccount(); return ok('Signed out. Local saves are kept.')
     case 'cloud-unlock': await recoverOfflineOwnership(); return ok('Stale lock cleared.')
     case 'cloud-restore': await restoreCloudArchive(value(action, 'id')); return ok('Recovery copy restored.', { reload: true })
@@ -91,8 +90,14 @@ export async function desktopAction(action: DesktopAction): Promise<DesktopActio
     case 'cloud-status': {
       await initializeCloud()
       const account = cloudAccount(), archives = await cloudStore.archives()
-      return ok('', { account: account?.username || '', linked: !!cloud.link, phase: cloud.state.phase,
-        conflicts: cloud.state.conflicts || [],
+      const status = !account ? 'Sign in to enable automatic cloud saves.'
+        : cloud.state.phase === 'ready' ? 'Automatic cloud saves: up to date'
+        : cloud.state.phase === 'syncing' ? 'Automatic cloud saves: copying...'
+        : cloud.state.phase === 'conflict' ? 'Both copies are kept. Choose a direction below.'
+        : cloud.state.phase === 'incompatible' ? 'Game versions differ. Local saves are kept.'
+        : cloud.state.phase === 'error' ? 'Cloud is unavailable. Local saves are kept.'
+        : 'Automatic cloud saves: waiting for a connection'
+      return ok('', { account: account?.username || '', status, canUnlock: !navigator.locks,
         archives: archives.map(entry => ({ id: entry.id, title: `${entry.when} · ${entry.snapshot.files.length} files` })) })
     }
     default: throw new Error('Unknown native menu action')

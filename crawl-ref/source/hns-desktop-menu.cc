@@ -1,6 +1,6 @@
 #include "AppHdr.h"
 
-#ifdef USE_TILE_LOCAL
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
 #include "hns-desktop.h"
 #include "end.h"
 #include "files.h"
@@ -276,7 +276,9 @@ void loot(bool &reload)
             const double value = strtod(values[i].c_str(), &tail) * scale[i];
             if (values[i].empty() || *tail || !isfinite(value)
                 || value < minimum[i] || value > maximum[i] || fabs(value - round(value)) > 0.00001)
+            {
                 valid = false;
+            }
             json_append_member(object, keys[i], json_mknumber(valid ? round(value) : 0));
         }
         if (!valid)
@@ -414,6 +416,50 @@ void records(bool &reload)
     }
 }
 
+void cloud_tools(const json_ptr &status, bool &reload)
+{
+    vector<string> labels, actions;
+    auto add = [&](const string &label, const string &action) { labels.push_back(label); actions.push_back(action); };
+    add("Restore a previous copy / export backup", "archives");
+    if (!text(status.get(), "account").empty())
+        add("Sign out (keep local saves)", "cloud-logout");
+    if (flag(status.get(), "canUnlock"))
+        add("Recover a stale save lock", "cloud-unlock");
+    add("Back", "back");
+    const int choice = choose("Account / recovery", labels);
+    if (choice < 0 || actions[choice] == "back")
+        return;
+    const string action = actions[choice];
+    if (action == "cloud-unlock")
+    {
+        if (choose("Save and close other game windows before recovering a lock.", {"Cancel", "Other game windows are closed: recover lock"}) == 1)
+            show_result(request(action, reload));
+    }
+    else if (action == "archives")
+    {
+        const auto entries = items(status.get(), "archives");
+        if (entries.empty())
+        {
+            message("Previous copies", "There are no previous copies on this device yet.");
+            return;
+        }
+        vector<string> copies;
+        for (const auto &entry : entries)
+            copies.push_back(entry.second);
+        copies.push_back("Back");
+        const int copy = choose("Previous copies (last 10)", copies);
+        if (copy < 0 || copy >= static_cast<int>(entries.size()))
+            return;
+        const int operation = choose(entries[copy].second, {"Restore on this device", "Export backup", "Back"});
+        if (operation == 0 && choose("Replace local saves with this previous copy?\nCurrent local saves will be kept as a recovery copy.", {"Cancel", "Restore"}) == 1)
+            show_result(request("cloud-restore", reload, arguments("id", entries[copy].first)));
+        else if (operation == 1)
+            show_result(request("cloud-export", reload, arguments("id", entries[copy].first)));
+    }
+    else
+        show_result(request(action, reload));
+}
+
 void cloud(bool &reload)
 {
     while (true)
@@ -432,63 +478,37 @@ void cloud(bool &reload)
         }
         else
         {
-            if (!flag(result.get(), "linked"))
-                add("Link this device's saves to this account", "cloud-link");
-            else
-                add("Synchronize now", "cloud-sync");
-            if (text(result.get(), "phase") == "conflict")
-            {
-                add("View conflicting files", "conflicts");
-                add("Conflicting files: keep this device's progress", "cloud-local");
-                add("Conflicting files: use cloud progress", "cloud-remote");
-            }
-            add("Sign out (keep local saves)", "cloud-logout");
+            add("Local -> Cloud  (upload)", "cloud-upload");
+            add("Cloud -> Local  (download)", "cloud-download");
         }
-        add("Recovery copies on this device", "archives");
-        add("Recover a stale save lock", "cloud-unlock");
+        add("Account / recovery", "tools");
         add("Back to main menu", "back");
         const int choice = choose("Cloud saves: " + (account.empty() ? "not signed in" : account)
-            + " [" + text(result.get(), "phase") + "]", labels);
+            + "\n" + text(result.get(), "status"), labels);
         if (choice < 0 || actions[choice] == "back")
             return;
         const string action = actions[choice];
-        if (action == "conflicts")
+        if (action == "cloud-upload" || action == "cloud-download")
         {
-            string paths;
-            const auto conflicts = json_find_member(result.get(), "conflicts");
-            if (conflicts && conflicts->tag == JSON_ARRAY)
-                for (auto row = json_first_child(conflicts); row; row = row->next)
-                    if (row->tag == JSON_STRING)
-                        paths += string(row->string_) + "\n";
-            message("Conflicting files (both recovery copies are kept)", paths);
-        }
-        else if (action == "cloud-unlock")
-        {
-            if (choose("Save and close other game windows before recovering a lock.", {"Cancel", "Other game windows are closed: recover lock"}) == 1)
+            const bool upload = action == "cloud-upload";
+            if (choose(upload
+                    ? "Local -> Cloud\nReplace cloud saves with this device's saves?\nPrevious saves will be kept as recovery copies."
+                    : "Cloud -> Local\nReplace this device's saves with cloud saves?\nPrevious saves will be kept as recovery copies.",
+                    {"Cancel", upload ? "Upload local saves" : "Download cloud saves"}) == 1)
+            {
                 show_result(request(action, reload));
+            }
         }
-        else if (action == "archives")
-        {
-            const auto entries = items(result.get(), "archives");
-            vector<string> copies;
-            for (const auto &entry : entries)
-                copies.push_back(entry.second);
-            copies.push_back("Back");
-            const int copy = choose("Recovery copies (last 10)", copies);
-            if (copy < 0 || copy >= static_cast<int>(entries.size()))
-                continue;
-            const int operation = choose(entries[copy].second, {"Restore on this device", "Export backup", "Back"});
-            if (operation == 0 && choose("Replace saves with this recovery copy? Current progress will be archived.", {"Cancel", "Restore"}) == 1)
-                show_result(request("cloud-restore", reload, arguments("id", entries[copy].first)));
-            else if (operation == 1)
-                show_result(request("cloud-export", reload, arguments("id", entries[copy].first)));
-        }
+        else if (action == "tools")
+            cloud_tools(result, reload);
         else if (action == "cloud-login" || action == "cloud-signup")
         {
             vector<string> credentials = {"", ""};
             if (!form(action == "cloud-login" ? "Cloud sign in" : "Create cloud account",
                 {"Username (3-32 letters, digits or _)", "Password (6+ characters)"}, credentials, 1))
+            {
                 continue;
+            }
             auto values = arguments("username", credentials[0]);
             json_append_member(values, "password", json_mkstring(credentials[1]));
             show_result(request(action, reload, values));

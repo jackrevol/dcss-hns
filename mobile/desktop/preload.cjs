@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('HnsDesktop', {
   recover: () => ipcRenderer.invoke('hns-native-recover'),
   finish: () => ipcRenderer.invoke('hns-native-finish'),
   checkpoint: () => ipcRenderer.invoke('hns-native-checkpoint'),
+  checkSaveCompatibility: pack => ipcRenderer.invoke('hns-native-compatible', pack),
   close: () => ipcRenderer.invoke('hns-native-close'),
   reportError: message => ipcRenderer.invoke('hns-native-error', message),
   exportFile: (name, bytes) => ipcRenderer.invoke('hns-native-export', name, bytes),

@@ -775,6 +775,9 @@
     <ClCompile Include="..\hints.cc">
       <Filter>cc</Filter>
     </ClCompile>
+    <ClCompile Include="..\hns-desktop-menu.cc">
+      <Filter>cc</Filter>
+    </ClCompile>
     <ClCompile Include="..\hns-loot.cc">
       <Filter>cc</Filter>
     </ClCompile>
@@ -1379,6 +1382,9 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\hints.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hns-desktop.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\hns-loot.h">

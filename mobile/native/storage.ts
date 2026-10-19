@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, lstatSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, lstatSync, utimesSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { randomUUID, createHash } from 'node:crypto'
 import { decodeSnapshot, encodeSnapshot, snapshot, type Snapshot } from '../src/cloud/snapshot'
@@ -8,6 +8,12 @@ export function atomicWrite(path: string, value: string | Uint8Array): void {
   const temporary = path + '.' + randomUUID() + '.tmp'
   writeFileSync(temporary, value, { mode: 0o600, encoding: 'utf8' })
   try { renameSync(temporary, path) } finally { rmSync(temporary, { force: true }) }
+}
+export function writeNativeSaveFile(path: string, file: SavedFile): void {
+  atomicWrite(path, file.data)
+  // 다운로드·앱 시작 때 파일을 복사해도 최근 플레이 시각으로 바뀌지 않습니다.
+  const seconds = file.mtimeMs >= 0 && file.mtimeMs <= Date.now() + 5 * 60_000 ? file.mtimeMs / 1000 : 0
+  utimesSync(path, seconds, seconds)
 }
 export function nativeFiles(root: string): SavedFile[] {
   const files: SavedFile[] = []
@@ -43,7 +49,7 @@ export function replaceNativeFiles(home: string, files: SavedFile[]): void {
       const destination = resolve(staged, file.path.slice('/crawl/'.length))
       if (!destination.startsWith(resolve(staged) + sep)) throw new Error('잘못된 세이브 경로')
       mkdirSync(resolve(destination, '..'), { recursive: true, mode: 0o700 })
-      writeFileSync(destination, file.data, { mode: 0o600 })
+      writeNativeSaveFile(destination, file)
     }
     rmSync(previous, { recursive: true, force: true })
     renameSync(root, previous)

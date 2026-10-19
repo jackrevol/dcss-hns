@@ -56,9 +56,9 @@ function appendLog(base: SavedFile | undefined, local: SavedFile, remote: SavedF
 }
 
 // Three-way merge. Deletions are meaningful only relative to an observed base.
-// Binary character packages are never spliced or chosen by timestamp/turn count.
+// Binary character packages stay whole; latest-copy mode compares their saved mtimes.
 export function mergeSnapshots(base: Snapshot | null, local: Snapshot, remote: Snapshot,
-  choice?: 'local' | 'remote'): Merge {
+  choice?: 'local' | 'remote' | 'latest'): Merge {
   const left = new Map(local.files.map(f => [f.path, f]))
   const right = new Map(remote.files.map(f => [f.path, f]))
   const before = new Map(base?.files.map(f => [f.path, f]) ?? [])
@@ -73,6 +73,15 @@ export function mergeSnapshots(base: Snapshot | null, local: Snapshot, remote: S
     else {
       const log = left.has(path) && right.has(path) ? appendLog(before.get(path), left.get(path)!, right.get(path)!) : null
       if (log) file = log
+      else if (choice === 'latest') {
+        const lfile = left.get(path), rfile = right.get(path)
+        // 복사한 시각이 아니라 실제로 저장한 시각을 비교합니다.
+        // 삭제·같은 시각·잘못된 시계는 판단을 보류하고 양쪽 사본을 보존합니다.
+        const valid = (mtime: number): boolean => mtime > 0 && mtime <= Date.now() + 5 * 60_000
+        if (lfile && rfile && valid(lfile.mtimeMs) && valid(rfile.mtimeMs) && lfile.mtimeMs !== rfile.mtimeMs)
+          file = lfile.mtimeMs > rfile.mtimeMs ? lfile : rfile
+        else { conflicts.push(path); continue }
+      }
       else if (choice) file = (choice === 'local' ? left : right).get(path)
       else { conflicts.push(path); continue }
     }

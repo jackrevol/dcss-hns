@@ -26,7 +26,7 @@ export async function playDesktopGame(name: string, onNotice: (message: string) 
       await replaceOfflineFiles(unpackSave(bytes).files)
       // SDL 호스트가 이미 1분 단위로 저장 요청을 묶습니다.
       savedCheckpoint(0)
-      onNotice('최근 체크포인트가 저장되었습니다. 클라우드 연결 시 자동 동기화합니다.')
+      onNotice('최근 체크포인트가 이 기기에 저장되었습니다.')
     }).catch(error => onNotice('저장 반영 대기: ' + (error instanceof Error ? error.message : String(error))))
   }
   const detach = desktop.onCheckpoint(receive)

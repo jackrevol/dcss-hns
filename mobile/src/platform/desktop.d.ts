@@ -10,6 +10,7 @@ declare global {
       recover(): Promise<Uint8Array | null>
       finish(): Promise<void>
       checkpoint(): Promise<void>
+      checkSaveCompatibility(pack: Uint8Array): Promise<boolean>
       close(): Promise<void>
       reportError(message: string): Promise<void>
       exportFile(name: string, bytes: Uint8Array): Promise<boolean>

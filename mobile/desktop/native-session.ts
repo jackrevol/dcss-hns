@@ -1,12 +1,14 @@
-import { spawn, type ChildProcess } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFile, spawn, type ChildProcess } from 'node:child_process'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { nativeFiles, replaceNativeFiles, atomicWrite } from '../native/storage'
+import { promisify } from 'node:util'
+import { nativeFiles, replaceNativeFiles, atomicWrite, writeNativeSaveFile } from '../native/storage'
 import { packSave, unpackSave } from '../src/offline/save-transfer'
 import { validateOfflineName } from '../src/offline/offline-state'
 import type { DesktopAction, DesktopActionData } from '../src/platform/desktop-actions'
 
-export function createNativeSession(home: string, assets: string, launch: typeof spawn = spawn) {
+const inspectSave = promisify(execFile)
+export function createNativeSession(home: string, assets: string, launch: typeof spawn = spawn, inspect = inspectSave) {
   const active = join(home, 'active.json'), request = join(home, 'checkpoint')
   const journal = join(home, 'menu.pzsave'), response = join(home, 'menu-response.json')
   let child: ChildProcess | undefined
@@ -48,6 +50,32 @@ export function createNativeSession(home: string, assets: string, launch: typeof
     if (!running) throw new Error('Native menu is not active')
     menuLocal = true
     atomicWrite(active, JSON.stringify({ pid: child?.pid, menu: true }))
+  }
+  async function compatible(bytes: Uint8Array): Promise<boolean> {
+    const characters = unpackSave(bytes).files.filter(file => file.path.endsWith('.cs'))
+    if (!characters.length) return true
+    mkdirSync(home, { recursive: true })
+    const temporary = mkdtempSync(join(home, 'compat-')), deadline = Date.now() + 3500
+    const executable = manifest.platform === 'linux' ? asset('DCSS HNS') : asset(manifest.binary)
+    const options = { cwd: asset(manifest.data), encoding: 'utf8' as const, timeout: 1500, maxBuffer: 1024 * 1024,
+      windowsHide: true, env: { ...process.env, CRAWL_DIR: temporary + sep } }
+    try {
+      const version = await inspect(executable, ['-version'], options)
+      const supported = /Save file version (\d+)\.(\d+)/.exec(String(version.stdout))
+      if (!supported) return false
+      for (let i = 0; i < characters.length; i++) {
+        if (Date.now() > deadline) return false
+        const path = join(temporary, i + '.cs')
+        writeFileSync(path, characters[i].data, { mode: 0o600 })
+        // 원본의 읽기 전용 명령으로 저장 형식을 검사합니다.
+        const info = await inspect(executable, ['-save-version', path], options)
+        const saved = / is (\d+)\.(\d+)\s*$/.exec(String(info.stdout))
+        if (!saved || !(saved[1] === supported[1] && Number(saved[2]) <= Number(supported[2])
+            || supported[1] === '34' && saved[1] === '33' && saved[2] === '17')) return false
+      }
+      return true
+    } catch { return false }
+    finally { rmSync(temporary, { recursive: true, force: true }) }
   }
   async function play(name: string, bytes: Uint8Array, onCheckpoint: (pack: Uint8Array) => void,
     onAction?: (action: DesktopAction, pack: Uint8Array) => Promise<{ data: DesktopActionData; pack: Uint8Array }>): Promise<{ pack: Uint8Array; code: number; manage: boolean; preserveLocal?: boolean }> {
@@ -112,7 +140,7 @@ export function createNativeSession(home: string, assets: string, launch: typeof
               for (const file of incoming) {
                 const path = join(crawl, file.path.slice('/crawl/'.length))
                 mkdirSync(resolve(path, '..'), { recursive: true })
-                atomicWrite(path, file.data)
+                writeNativeSaveFile(path, file)
               }
               for (const file of existing) if (!wanted.has(file.path)) rmSync(join(crawl, file.path.slice('/crawl/'.length)))
               rmSync(journal, { force: true })
@@ -157,5 +185,5 @@ export function createNativeSession(home: string, assets: string, launch: typeof
       child = undefined
     }
   }
-  return { play, recover, finish, checkpoint, menuStarted, get running() { return running } }
+  return { play, recover, finish, checkpoint, menuStarted, compatible, get running() { return running } }
 }

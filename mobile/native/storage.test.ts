@@ -9,6 +9,14 @@ beforeEach(()=>{home=mkdtempSync(join(tmpdir(),'hns-native-test-'))})
 afterEach(()=>rmSync(home,{recursive:true,force:true}))
 const file=(name:string,text:string)=>({path:'/crawl/saves/'+name,mode:0o100664,mtimeMs:1,data:new TextEncoder().encode(text)})
 describe('native saves shared with apps and browsers',()=>{
+  it('preserves the actual save time when copying files into the native game', () => {
+    const saved = { ...file('hero.cs', 'progress'), mtimeMs: 1_700_000_000_000 }
+    replaceNativeFiles(home, [saved])
+    const copied = nativeFiles(join(home, 'crawl'))[0]
+    expect(Math.abs(copied.mtimeMs - saved.mtimeMs)).toBeLessThan(1)
+    replaceNativeFiles(home, [copied])
+    expect(Math.abs(nativeFiles(join(home, 'crawl'))[0].mtimeMs - saved.mtimeMs)).toBeLessThan(1)
+  })
   it('round-trips the same binary pack and base state used by the browser',async()=>{
     const io=createNativeIO(home,'same-engine')
     const app=await snapshot([file('hero.cs','binary\0data')],'same-engine')

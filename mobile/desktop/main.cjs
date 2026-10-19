@@ -39,6 +39,11 @@ else app.whenReady().then(async () => {
   ipcMain.handle('hns-native-recover', event => { trusted(event); return native.recover() })
   ipcMain.handle('hns-native-finish', event => { trusted(event); native.finish() })
   ipcMain.handle('hns-native-checkpoint', event => { trusted(event); native.checkpoint() })
+  ipcMain.handle('hns-native-compatible', (event, pack) => {
+    trusted(event)
+    if (!(pack instanceof Uint8Array) || pack.byteLength > 128 * 1024 * 1024) throw new Error('Invalid save compatibility request')
+    return native.compatible(pack)
+  })
   ipcMain.handle('hns-native-close', event => { trusted(event); if (!native.running) app.quit() })
   ipcMain.handle('hns-native-error', (event, message) => {
     trusted(event)

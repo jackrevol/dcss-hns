@@ -2,13 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { packSave } from '../offline/save-transfer'
 
-const io = vi.hoisted(() => ({ read: vi.fn(), files: vi.fn(), write: vi.fn(), release: vi.fn(), sync: vi.fn(),
+const io = vi.hoisted(() => ({ read: vi.fn(), files: vi.fn(), write: vi.fn(), release: vi.fn(), transfer: vi.fn(),
   signin: vi.fn(), signup: vi.fn(), refresh: vi.fn(), archives: vi.fn(), records: vi.fn(), remove: vi.fn() }))
 vi.mock('../offline/save-transfer', async original => ({ ...await original<typeof import('../offline/save-transfer')>(),
   readOfflineFile: io.read, readOfflineFiles: io.files, writeOfflineFiles: io.write }))
 vi.mock('../cloud/ownership', () => ({ acquireOfflineOwnership: async () => io.release, recoverOfflineOwnership: vi.fn() }))
-vi.mock('../cloud/runtime', () => ({ cloud: { state: { phase: 'conflict', conflicts: ['/crawl/saves/A.cs'] }, link: { key: 'a' } },
-  syncIdle: io.sync, initializeCloud: vi.fn(), refreshCloudAccount: io.refresh, connectCloudAccount: vi.fn(), disconnectCloudAccount: vi.fn(), restoreCloudArchive: vi.fn() }))
+vi.mock('../cloud/runtime', () => ({ cloud: { state: { phase: 'ready' } }, transferCloudSaves: io.transfer,
+  initializeCloud: vi.fn(), prepareDesktopCloud: vi.fn(), refreshCloudAccount: io.refresh, disconnectCloudAccount: vi.fn(), restoreCloudArchive: vi.fn() }))
 vi.mock('../cloud/supabase-provider', () => ({ cloudAccount: () => ({ username: 'Tester' }), signInCloud: io.signin, signUpCloud: io.signup }))
 vi.mock('../cloud/store', () => ({ cloudStore: { archives: io.archives } }))
 vi.mock('../offline/game-records', () => ({ readGameRecords: io.records, deleteGameRecord: io.remove, sortRecords: (records: unknown[]) => records, readMorgueText: vi.fn() }))
@@ -39,13 +39,16 @@ describe('native main menu shared actions', () => {
     await expect(desktopAction({ id: 4, kind: 'backup-import' })).rejects.toThrow()
     expect(io.write).toHaveBeenCalledOnce()
   })
-  it('keeps login and cloud conflict resolution in the existing account and sync implementations', async () => {
+  it('signs in without copying saves and routes each direction explicitly', async () => {
     await desktopAction({ id: 5, kind: 'cloud-login', values: { username: 'Tester', password: 'secret-password' } })
     expect(io.signin).toHaveBeenCalledWith('Tester', 'secret-password')
     expect(io.write).not.toHaveBeenCalled()
-    await desktopAction({ id: 6, kind: 'cloud-remote' })
-    expect(io.sync).toHaveBeenCalledWith({ choice: 'remote' })
-    expect(await desktopAction({ id: 7, kind: 'cloud-status' })).toMatchObject({ account: 'Tester', phase: 'conflict', conflicts: ['/crawl/saves/A.cs'] })
+    expect(io.transfer).not.toHaveBeenCalled()
+    await desktopAction({ id: 6, kind: 'cloud-upload' })
+    expect(io.transfer).toHaveBeenLastCalledWith('upload')
+    expect(await desktopAction({ id: 7, kind: 'cloud-download' })).toMatchObject({ reload: true })
+    expect(io.transfer).toHaveBeenLastCalledWith('download')
+    expect(await desktopAction({ id: 8, kind: 'cloud-status' })).toMatchObject({ account: 'Tester', archives: [] })
   })
   it('rejects a stale record identifier before deleting anything', async () => {
     await expect(desktopAction({ id: 8, kind: 'record-delete', values: { id: 'stale' } })).rejects.toThrow('Record not found')

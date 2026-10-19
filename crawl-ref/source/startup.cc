@@ -703,7 +703,7 @@ public:
 
         m_root->add_child(std::move(grid));
 
-#ifdef USE_TILE_LOCAL
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
         // HNS의 모든 메뉴를 원본 시작 화면 안에 배치합니다.
         if (getenv("HNS_DESKTOP_MANAGE"))
         {
@@ -898,7 +898,7 @@ void UIStartupMenu::on_show()
             menu_item_activated(GAME_TYPE_INSTRUCTIONS);
             return true;
         }
-#ifdef USE_TILE_LOCAL
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
         else if (getenv("HNS_DESKTOP_MANAGE")
             && (keyn == CK_F2 || keyn == CK_F3 || keyn == CK_F4
                 || keyn == CK_F5 || keyn == CK_F6 || keyn == CK_F7))
@@ -981,7 +981,7 @@ void UIStartupMenu::on_show()
 
 void UIStartupMenu::menu_item_activated(int id)
 {
-#ifdef USE_TILE_LOCAL
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
     if (id <= -2 && id >= -7)
     {
         reload = hns_desktop_menu(-id - 2);

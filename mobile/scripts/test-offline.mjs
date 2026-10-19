@@ -122,12 +122,17 @@ try {
   await page.screenshot({ path: resolve(evidence, 'offline-tiles.png') })
 
   // Check the HNS-only prompt and exception-driven reload through WASM.
-  // A hostile wizard-created monster gives us an ordinary combat death.
+  // 시작 지형이 닫힌 입구여도 몬스터가 반드시 접근할 수 있게 준비합니다.
+  // 전투·사망·부활은 계속 실제 엔진으로 검증합니다.
   await keys('&')
   await bodyContains('Confirm with "wiz"')
   await keys('wiz\r')
   await bodyContains('Enter Wizard Command')
-  await keys('m')
+  await keys('\u0014') // 원본 위저드의 DLua 인터프리터
+  await bodyContains('[Hit ESC to exit interpreter.]')
+  await keys('local x,y=you.pos(); for dx=-1,1 do for dy=-1,1 do if dx~=0 or dy~=0 then dgn.terrain_changed(x+dx,y+dy,"floor",false,false) end end end; return "HNS smoke arena ready"\r')
+  await bodyContains('HNS smoke arena ready')
+  await keys('\u001b&m')
   await bodyContains('Enter monster name')
   await keys('executioner\r')
   await bodyContains('You encounter an Executioner')

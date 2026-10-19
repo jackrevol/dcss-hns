@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -11,13 +11,13 @@ import { packSave, unpackSave } from '../src/offline/save-transfer'
 
 const homes: string[] = []
 afterEach(() => { vi.useRealTimers(); for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true }) })
-function fixture() {
+function fixture(inspect?: Parameters<typeof createNativeSession>[3]) {
   const home = mkdtempSync(join(tmpdir(), 'hns-native-session-')); homes.push(home)
   const assets = join(home, 'assets'); mkdirSync(assets)
   writeFileSync(join(assets, 'desktop.json'), JSON.stringify({ binary: 'crawl', data: '.', platform: 'win32' }), 'utf8')
   const child = Object.assign(new EventEmitter(), { stdout: new PassThrough() })
   const launch = vi.fn(() => child)
-  const session = createNativeSession(join(home, 'state'), assets, launch as unknown as typeof spawn)
+  const session = createNativeSession(join(home, 'state'), assets, launch as unknown as typeof spawn, inspect)
   const files = [
     { path: '/crawl/init.txt', mode: 0o100664, mtimeMs: 1, data: new TextEncoder().encode('hns_floor_item_rate = 500\n') },
     { path: '/crawl/saves/Tester.cs', mode: 0o100664, mtimeMs: 1, data: new Uint8Array([1, 2, 3]) },
@@ -25,6 +25,18 @@ function fixture() {
   return { home: join(home, 'state'), child, launch, session, files, bytes: packSave(files, { exportedAt: '' }) }
 }
 describe('original PC client save bridge', () => {
+  for (const [saved, expected] of [['34.299', true], ['34.301', false], ['35.0', false], ['33.17', true], ['', false]] as const) {
+    it(`checks actual save format ${saved || 'invalid'} without launching or changing the game`, async () => {
+      const inspect = vi.fn(async (_binary, args) => ({ stdout: args[0] === '-version'
+        ? 'Crawl version 0.35-a0-hns.1\nSave file version 34.300\n'
+        : saved ? `Save file version for ${args[1]} is ${saved}\n` : '', stderr: '' }))
+      const f = fixture(inspect as unknown as Parameters<typeof createNativeSession>[3])
+      expect(await f.session.compatible(f.bytes)).toBe(expected)
+      expect(f.launch).not.toHaveBeenCalled()
+      expect(readdirSync(f.home).some(name => name.startsWith('compat-'))).toBe(false)
+      expect(existsSync(join(f.home, 'crawl'))).toBe(false)
+    })
+  }
   it('does not replace an acknowledged menu snapshot in IndexedDB with older native files', async () => {
     const f = fixture()
     const result = f.session.play('', f.bytes, () => {})

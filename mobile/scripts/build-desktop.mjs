@@ -40,7 +40,8 @@ rmSync(resolve(input,'web/sw.js'),{force:true})
 for (const name of ['LICENSE','ATTRIBUTION.md']) cpSync(resolve(root,name),resolve(input,'web',name+'.txt'))
 cpSync(resolve(root,'../LICENSE'),resolve(input,'web/ENGINE-LICENSE.txt'))
 writeFileSync(resolve(input,'package.json'),JSON.stringify({name:'dcss-hns-desktop',productName:'DCSS HNS',version:release.numericVersion,main:'main.cjs'}), 'utf8')
-const outputs=await packager({dir:input,name:'DCSS HNS',out:resolve(root,'build/desktop'),
+// 실행 중인 앱을 교체하지 않고 별도 폴더에 새 빌드를 검증할 수 있습니다.
+const outputs=await packager({dir:input,name:'DCSS HNS',out:resolve(process.env.HNS_DESKTOP_OUTPUT || resolve(root,'build/desktop')),
   platform,arch,
   appVersion: release.numericVersion,
   icon: resolve(root, '../crawl-ref/source/dat/tiles', platform === 'darwin' ? 'stone_soup_icon.icns' : platform === 'win32' ? 'stone_soup_icon.ico' : 'stone_soup_icon-512x512.png'),

@@ -1,4 +1,4 @@
-import { beginCloudGame, endCloudGame } from '../cloud/runtime'
+import { beginCloudGame, endCloudGame, prepareDesktopCloud } from '../cloud/runtime'
 import { playDesktopGame, recoverDesktopGame } from './native-game'
 
 // 이 문서는 화면을 그리지 않습니다. PC의 모든 UI는 원본 SDL 창에서 제공합니다.
@@ -6,6 +6,7 @@ void (async () => {
   const desktop = window.HnsDesktop!
   try {
     await recoverDesktopGame()
+    await prepareDesktopCloud()
     await beginCloudGame()
     const result = await playDesktopGame('', () => {})
     await endCloudGame()

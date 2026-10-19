@@ -76,7 +76,17 @@ static bool _hns_menu_test_event(wm_event *event)
     };
     const auto command = json_find_element(json_find_member(plan.get(), "steps"), step);
     if (!command)
+    {
+        const string done = string(path) + ".done";
+        if (file_exists(done))
+        {
+            unlink_u(done.c_str());
+            event->type = WME_KEYDOWN;
+            event->key.keysym.sym = CK_ESCAPE;
+            return true;
+        }
         return false;
+    }
     vector<shared_ptr<MenuButton>> buttons;
     vector<shared_ptr<ui::TextEntry>> inputs;
     string contents;
@@ -113,6 +123,8 @@ static bool _hns_menu_test_event(wm_event *event)
         }
     }
     bool ready = kind != "expect" || contents.find(value) != string::npos;
+    if (kind == "absent")
+        ready = contents.find(value) == string::npos;
     if (kind == "activate")
         ready = !!target;
     if (!ready)
@@ -169,8 +181,7 @@ static bool _hns_menu_test_event(wm_event *event)
             fprintf(file, "{\"ok\":true,\"steps\":%d}", step);
             fclose(file);
         }
-        event->type = WME_KEYDOWN;
-        event->key.keysym.sym = CK_ESCAPE;
+        // 호스트가 저장·클라우드 결과를 검사할 때까지 창을 유지합니다.
     }
     return true;
 }
