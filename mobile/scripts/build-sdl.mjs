@@ -66,6 +66,9 @@ if (platform === 'win32') {
     .replaceAll('Dungeon Crawl Stone Soup', 'DCSS HNS')
     .replace('<string>10.7.0</string>', '<string>11.0</string>')
     .replace('net.sourceforge.crawl-ref', 'io.github.jackrevol.dcsshns.desktop'), 'utf8')
+  run('plutil', ['-replace', 'CFBundleVersion', '-string', release.numericVersion, plist])
+  run('plutil', ['-insert', 'CFBundleShortVersionString', '-string', release.numericVersion, plist])
+  run('plutil', ['-insert', 'HNSReleaseVersion', '-string', release.version, plist])
   data = resolve(app, 'Contents/Resources')
   fonts = resolve(app, 'Contents/MacOS/contrib/fonts')
 } else {

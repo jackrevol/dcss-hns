@@ -88,6 +88,9 @@ jobs:
           if [[ -f mobile/scripts/windows-runtime.test.mjs ]]; then
             node --test mobile/scripts/windows-runtime.test.mjs
           fi
+          if [[ -f mobile/scripts/release-version.test.mjs ]]; then
+            node --test mobile/scripts/release-version.test.mjs
+          fi
       - name: C++ 스타일 검사
         working-directory: crawl-ref/source
         run: |
@@ -177,6 +180,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Share engine version with desktop (without WASM)
+        if: needs.plan.outputs.standalone != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: dcss-hns-native-input
@@ -365,6 +369,7 @@ jobs:
           tar -xzf "build/native-input/native-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C build/sdl
         if: needs.plan.outputs.parallel == 'true'
       - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.standalone != 'true'
         with:
           name: dcss-hns-native-input
           path: mobile/dist/offline

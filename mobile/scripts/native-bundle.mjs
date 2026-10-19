@@ -1,6 +1,12 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
+import { createHash } from 'node:crypto'
+
+export function nativeEngineVersion(directory, manifest) {
+  return { hns: true, version: manifest.version,
+    build: createHash('sha256').update(readFileSync(resolve(directory, manifest.binary))).digest('hex').slice(0, 12) }
+}
 
 export function sourceCommit(mobile) {
   const repository = resolve(mobile, '..')

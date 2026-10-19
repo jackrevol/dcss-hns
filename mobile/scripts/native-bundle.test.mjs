@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { readNativeBundle } from './native-bundle.mjs'
+import { nativeEngineVersion, readNativeBundle } from './native-bundle.mjs'
 
 const expected = { platform: 'linux', arch: 'x64', version: '0.35-a0-hns.3', source: 'a'.repeat(40) }
 function bundle(t) {
@@ -22,6 +22,15 @@ function bundle(t) {
 }
 test('같은 커밋·버전·플랫폼의 네이티브 결과만 이어서 패키징한다', t => {
   assert.equal(readNativeBundle(bundle(t), expected).source, expected.source)
+})
+test('PC 버전 정보는 네이티브 manifest와 실제 엔진 바이너리에서 만든다', t => {
+  const directory = bundle(t), manifest = readNativeBundle(directory, expected)
+  const version = nativeEngineVersion(directory, manifest)
+  assert.equal(version.version, expected.version)
+  assert.equal(version.hns, true)
+  assert.match(version.build, /^[a-f0-9]{12}$/)
+  writeFileSync(join(directory, 'crawl'), 'updated binary')
+  assert.notEqual(nativeEngineVersion(directory, manifest).build, version.build)
 })
 test('다른 커밋·버전·아키텍처·클라이언트는 거부한다', t => {
   const directory = bundle(t)

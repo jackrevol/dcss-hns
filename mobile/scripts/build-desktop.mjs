@@ -1,10 +1,9 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { releaseVersion } from './release-version.mjs'
-import { readNativeBundle, sourceCommit } from './native-bundle.mjs'
+import { nativeEngineVersion, readNativeBundle, sourceCommit } from './native-bundle.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const platform = process.env.HNS_DESKTOP_PLATFORM || process.platform
@@ -30,12 +29,7 @@ if (platform === 'darwin') {
   cpSync(native, output, { recursive: true })
   data = resolve(output, manifest.data)
 }
-const versionPath = resolve(root, 'dist/offline/version.json')
-const version = existsSync(versionPath) ? JSON.parse(readFileSync(versionPath, 'utf8')) : {
-  hns: true, version: release.version,
-  build: createHash('sha256').update(readFileSync(resolve(native, manifest.binary))).digest('hex').slice(0, 12),
-}
-if (!version.hns || version.version !== release.version) throw new Error('Engine and package versions differ')
+const version = nativeEngineVersion(native, manifest)
 const project = readFileSync(resolve(root, 'src/cloud/project.ts'), 'utf8')
 const cloud = {
   url: process.env.VITE_SUPABASE_URL || /SUPABASE_URL[^\n]+\|\| '([^']+)'/.exec(project)?.[1],
