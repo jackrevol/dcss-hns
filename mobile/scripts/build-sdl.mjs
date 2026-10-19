@@ -4,6 +4,7 @@ import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { releaseVersion } from './release-version.mjs'
 import { readNativeBundle, sourceCommit } from './native-bundle.mjs'
+import { readDllImports } from './windows-runtime.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const source = resolve(root, '../crawl-ref/source')
@@ -36,19 +37,18 @@ if (platform === 'win32') {
   // libcurl and its TLS dependencies are private app libraries, never a launcher.
   const bin = execFileSync('cygpath', ['-w', '/mingw64/bin'], { encoding: 'utf8' }).trim()
   const copied = new Set()
-  const libraries = path => {
-    const dependencies = execFileSync('objdump', ['-p', path], { encoding: 'utf8' })
-    for (const match of dependencies.matchAll(/DLL Name:\s*([^\r\n]+)/g)) {
-      const name = match[1].trim(), key = name.toLowerCase()
+  const libraries = async path => {
+    for (const name of await readDllImports(path)) {
+      const key = name.toLowerCase()
       if (copied.has(key)) continue
       copied.add(key)
       const library = resolve(bin, name)
-      if (existsSync(library)) { cpSync(library, resolve(output, name)); libraries(resolve(output, name)) }
+      if (existsSync(library)) { cpSync(library, resolve(output, name)); await libraries(resolve(output, name)) }
       else if (!/^(?:api-ms-|ext-ms-)/i.test(name) && !existsSync(resolve(process.env.SystemRoot || 'C:/Windows', 'System32', name)))
         throw new Error('Missing Windows runtime library: ' + name)
     }
   }
-  libraries(binary)
+  await libraries(binary)
   const prefix = dirname(bin), certificates = resolve(prefix, 'etc/ssl/certs/ca-bundle.crt')
   if (!existsSync(certificates)) throw new Error('Missing trusted CA bundle for native HTTPS')
   cpSync(certificates, resolve(output, 'hns-ca-bundle.crt'), { dereference: true })

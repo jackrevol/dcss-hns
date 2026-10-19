@@ -1,5 +1,11 @@
 # DCSS HNS 작업 인수인계
 
+## Windows Actions 패키징 수정
+
+- 실행 `39205404105`는 Windows 엔진 컴파일과 설치 후 DLL 수집에서 실패했습니다. `objdump -p`가 출력한 PE 예외 테이블이 Node `execFileSync`의 기본 1MiB 한도를 넘어 `ENOBUFS`가 발생했습니다. Linux·macOS 두 아키텍처·WASM·Android APK는 성공했습니다.
+- `mobile/scripts/windows-runtime.mjs`에서 출력을 줄 단위로 읽고 DLL 이름만 보관합니다. 종속 DLL 재귀 복사와 누락 검사, 검사 도구 실패 전파는 유지합니다. 오류 출력은 마지막 4KiB만 보관합니다.
+- 1MiB를 넘는 출력의 앞뒤 DLL과 중복 제거, 검사 도구 오류·실행 파일 누락을 검증했습니다. 기본 빌드에 테스트를 추가하지 않았고, 수동 검사에서는 이전 태그에 새 검사 파일이 없는 경우를 허용합니다.
+
 ## 현재 구조: PC SDL 단독 앱
 
 - 사용자 요청에 따라 Electron·Chromium 런타임과 별도 저장 서비스를 제거했습니다. macOS는 공개 앱 ID `io.github.jackrevol.dcsshns.desktop`을 가진 SDL `.app` 하나입니다. Windows/Linux도 게임이 직접 실행됩니다.

@@ -85,6 +85,9 @@ jobs:
           node --test .github/scripts/ci-*.test.mjs
           python3 -m unittest discover -s crawl-ref/source/wasm -p "test_*.py"
           node --test mobile/scripts/native-bundle.test.mjs
+          if [[ -f mobile/scripts/windows-runtime.test.mjs ]]; then
+            node --test mobile/scripts/windows-runtime.test.mjs
+          fi
       - name: C++ 스타일 검사
         working-directory: crawl-ref/source
         run: |
