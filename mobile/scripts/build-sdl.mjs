@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { releaseVersion } from './release-version.mjs'
 import { readNativeBundle, sourceCommit } from './native-bundle.mjs'
@@ -15,7 +15,8 @@ if (!platformName || !(platform === 'darwin' ? ['x64', 'arm64'] : ['x64']).inclu
 if (platform !== process.platform || arch !== process.arch) throw new Error('Build desktop clients on the matching platform and architecture')
 const output = resolve(root, 'build/sdl/native')
 const run = (command, args, cwd = source) => execFileSync(command, args, { cwd, stdio: 'inherit', env: { ...process.env, HNS_ENGINE_VERSION: release.version } })
-const makeArgs = ['-j' + (process.env.JOBS || '8'), 'TILES=1', 'BUILD_LUA=1', `SRC_VERSION=${release.version}`]
+const makeArgs = ['-j' + (process.env.JOBS || '8'), 'TILES=1', 'BUILD_LUA=1', 'HNS_NATIVE_DESKTOP=1', 'SAVEDIR=', `SRC_VERSION=${release.version}`]
+if (platform === 'darwin') makeArgs.push('MACOSX_MIN_VERSION=11.0')
 const reset = path => {
   const target = resolve(path)
   if (!target.startsWith(resolve(root, '..') + sep)) throw new Error('Build directory is outside the workspace')
@@ -32,6 +33,26 @@ if (platform === 'win32') {
   cpSync(resolve(source, stage), output, { recursive: true })
   binary = resolve(output, 'DCSS HNS.exe')
   renameSync(resolve(output, 'crawl.exe'), binary)
+  // libcurl and its TLS dependencies are private app libraries, never a launcher.
+  const bin = execFileSync('cygpath', ['-w', '/mingw64/bin'], { encoding: 'utf8' }).trim()
+  const copied = new Set()
+  const libraries = path => {
+    const dependencies = execFileSync('objdump', ['-p', path], { encoding: 'utf8' })
+    for (const match of dependencies.matchAll(/DLL Name:\s*([^\r\n]+)/g)) {
+      const name = match[1].trim(), key = name.toLowerCase()
+      if (copied.has(key)) continue
+      copied.add(key)
+      const library = resolve(bin, name)
+      if (existsSync(library)) { cpSync(library, resolve(output, name)); libraries(resolve(output, name)) }
+      else if (!/^(?:api-ms-|ext-ms-)/i.test(name) && !existsSync(resolve(process.env.SystemRoot || 'C:/Windows', 'System32', name)))
+        throw new Error('Missing Windows runtime library: ' + name)
+    }
+  }
+  libraries(binary)
+  const prefix = dirname(bin), certificates = resolve(prefix, 'etc/ssl/certs/ca-bundle.crt')
+  if (!existsSync(certificates)) throw new Error('Missing trusted CA bundle for native HTTPS')
+  cpSync(certificates, resolve(output, 'hns-ca-bundle.crt'), { dereference: true })
+  cpSync(resolve(prefix, 'share/licenses'), resolve(output, 'licenses/runtime'), { recursive: true })
   data = output
 } else if (platform === 'darwin') {
   run('make', [...makeArgs, 'mac-app-tiles'])
@@ -43,7 +64,8 @@ if (platform === 'win32') {
   writeFileSync(plist, readFileSync(plist, 'utf8')
     .replaceAll('Dungeon Crawl Stone Soup - Tiles', 'DCSS HNS')
     .replaceAll('Dungeon Crawl Stone Soup', 'DCSS HNS')
-    .replace('net.sourceforge.crawl-ref', 'io.github.jackrevol.dcsshns.desktop.engine'), 'utf8')
+    .replace('<string>10.7.0</string>', '<string>11.0</string>')
+    .replace('net.sourceforge.crawl-ref', 'io.github.jackrevol.dcsshns.desktop'), 'utf8')
   data = resolve(app, 'Contents/Resources')
   fonts = resolve(app, 'Contents/MacOS/contrib/fonts')
 } else {
@@ -61,7 +83,7 @@ if (platform === 'win32') {
 cpSync(resolve(root, '../LICENSE'), resolve(output, 'LICENSE.txt'))
 cpSync(resolve(root, '../crawl-ref/CREDITS.txt'), resolve(output, 'CREDITS.txt'))
 writeFileSync(resolve(output, 'desktop.json'), JSON.stringify({
-  client: 'sdl-tiles', platform, arch,
+  client: 'sdl-tiles', standalone: true, platform, arch,
   version: release.version,
   source: sourceCommit(root),
   binary: binary.slice(output.length + 1), data: data.slice(output.length + 1) || '.',

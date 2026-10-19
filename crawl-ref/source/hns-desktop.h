@@ -9,3 +9,4 @@ void hns_desktop_saved();
 // 원본 메인 메뉴와 같은 SDL 창에서 HNS 설정·저장 기능을 엽니다.
 bool hns_desktop_menu(int menu);
 bool hns_desktop_menu_busy();
+void hns_desktop_native_start();

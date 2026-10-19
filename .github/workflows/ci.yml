@@ -50,6 +50,7 @@ jobs:
       msvc: ${{ steps.plan.outputs.msvc }}
       desktop: ${{ steps.plan.outputs.desktop }}
       parallel: ${{ steps.plan.outputs.parallel }}
+      standalone: ${{ steps.plan.outputs.standalone }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -282,7 +283,7 @@ jobs:
           msystem: MINGW64
           path-type: inherit
           update: true
-          install: base-devel zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-python-yaml mingw-w64-x86_64-pkgconf
+          install: base-devel zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-python-yaml mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl
       - name: Cache native compilation
         if: runner.os != 'Windows'
         uses: hendrikmuhs/ccache-action@v1.2
@@ -306,6 +307,13 @@ jobs:
         run: node scripts/build-sdl.mjs ${{ needs.plan.outputs.tests == 'true' && '--verify' || '' }}
       - name: Archive native files with executable modes and symlinks
         run: tar -czf "build/native-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C build/sdl native
+      - name: Verify standalone save backend (Windows, optional)
+        if: needs.plan.outputs.tests == 'true' && needs.plan.outputs.standalone == 'true' && runner.os == 'Windows'
+        shell: msys2 {0}
+        run: node scripts/test-native-backend.mjs
+      - name: Verify standalone save backend (optional)
+        if: needs.plan.outputs.tests == 'true' && needs.plan.outputs.standalone == 'true' && runner.os != 'Windows'
+        run: node scripts/test-native-backend.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: hns-sdl-${{ matrix.platform }}-${{ matrix.arch }}
@@ -363,6 +371,7 @@ jobs:
           name: dcss-hns-test-save
           path: mobile/test-results
       - name: Install desktop dependencies
+        if: needs.plan.outputs.tests == 'true' || needs.plan.outputs.standalone != 'true'
         run: npm ci
       - uses: actions/setup-python@v5
         if: needs.plan.outputs.parallel != 'true' && (runner.os != 'Windows')
@@ -390,7 +399,7 @@ jobs:
           msystem: MINGW64
           path-type: inherit
           update: ${{ needs.plan.outputs.parallel != 'true' }}
-          install: ${{ needs.plan.outputs.parallel == 'true' && 'mingw-w64-x86_64-python' || 'base-devel zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-python-yaml mingw-w64-x86_64-pkgconf' }}
+          install: ${{ needs.plan.outputs.parallel == 'true' && 'mingw-w64-x86_64-python' || 'base-devel zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-python-yaml mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl' }}
       - name: Package Windows client with original SDL engine
         if: runner.os == 'Windows'
         shell: msys2 {0}

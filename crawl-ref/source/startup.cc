@@ -68,6 +68,7 @@
  #include "windowmanager.h"
  #include "syscalls.h"
  #include "hns-desktop.h"
+#include "hns-native.h"
 #endif
 #include "ui.h"
 #ifdef __ANDROID__
@@ -705,7 +706,7 @@ public:
 
 #if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
         // HNS의 모든 메뉴를 원본 시작 화면 안에 배치합니다.
-        if (getenv("HNS_DESKTOP_MANAGE"))
+        if (hns_native_enabled() || getenv("HNS_DESKTOP_MANAGE"))
         {
             auto title = make_shared<Text>(formatted_string("HNS settings / saves", LIGHTCYAN));
             title->set_margin_for_sdl(8, 0, 6, 0);
@@ -899,7 +900,7 @@ void UIStartupMenu::on_show()
             return true;
         }
 #if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
-        else if (getenv("HNS_DESKTOP_MANAGE")
+        else if ((hns_native_enabled() || getenv("HNS_DESKTOP_MANAGE"))
             && (keyn == CK_F2 || keyn == CK_F3 || keyn == CK_F4
                 || keyn == CK_F5 || keyn == CK_F6 || keyn == CK_F7))
         {
@@ -1093,6 +1094,9 @@ static bool _exit_type_allows_menu_bypass(game_exit exit)
 bool startup_step(const hns_revival *revival)
 {
     _initialize();
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
+    hns_desktop_native_start();
+#endif
 
     if (revival)
     {

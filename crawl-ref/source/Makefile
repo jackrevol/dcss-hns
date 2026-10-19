@@ -111,6 +111,15 @@ MAKEFLAGS += -rR # This only works for recursive makes, i.e. contribs ...
 
 include Makefile.obj
 
+# Only release SDL clients need HTTPS/cloud storage. Other engine targets keep
+# dependency-free stubs; native implementation objects use C++17 locally.
+ifdef HNS_NATIVE_DESKTOP
+HNS_NATIVE_OBJECTS := hns-native.o hns-native-pack.o hns-native-cloud.o hns-native-migrate.o
+GLTILES_OBJECTS := $(filter-out hns-native-stub.o,$(GLTILES_OBJECTS)) $(HNS_NATIVE_OBJECTS)
+$(HNS_NATIVE_OBJECTS): ALL_CFLAGS += -std=c++17 $(shell $(PKGCONFIG) --cflags libcurl)
+LIBS += $(shell $(PKGCONFIG) --libs libcurl)
+endif
+
 #
 # Compiler Flags
 #
@@ -1251,6 +1260,12 @@ ifdef APPLE_PLATFORM
 # system libraries, and always take lower precedence than any -I that might be
 # caused by environment variables.
 INCLUDES_L += -isystem /usr/local/include
+endif
+
+ifdef HNS_NATIVE_DESKTOP
+ifdef WIN32
+EXTRA_LIBS := $(filter-out -static,$(EXTRA_LIBS))
+endif
 endif
 
 LIBS += $(CONTRIB_LIBS) $(EXTRA_LIBS)

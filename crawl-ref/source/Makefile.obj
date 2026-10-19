@@ -282,6 +282,7 @@ tilecell.o
 
 GLTILES_OBJECTS = \
 hns-desktop-menu.o \
+hns-native-stub.o \
 glwrapper.o \
 libgui.o \
 tilebuf.o \

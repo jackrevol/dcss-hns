@@ -22,6 +22,7 @@
 #include "ghost.h"
 #include "hints.h"
 #include "hns-desktop.h"
+#include "hns-native.h"
 #include "initfile.h"
 #include "invent.h"
 #include "item-prop.h"
@@ -184,6 +185,9 @@ NORETURN void end(int exit_code, bool print_error, const char *format, ...)
         msg::deinitialise_mpr_streams();
         _clear_globals_on_exit();
         databaseSystemShutdown();
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
+        hns_native_finish();
+#endif
 #ifdef DEBUG_PROPS
         dump_prop_accesses();
 #endif

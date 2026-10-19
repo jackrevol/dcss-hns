@@ -1,0 +1,8 @@
+{
+  "description": "Disposable Chromium localStorage fixture; native_test with a dummy login key. Never sent to any server.",
+  "files": {
+    "000003.log": "mhvcNRcAAQEAAAAAAAAAAQAAAAEHVkVSU0lPTgExbUunylQBAQIAAAAAAAAAAwAAAAFcX2h0dHBzOi8vYXBwYXNzZXRzLmRjc3NobnMuaW52YWxpZAABaG5zLWNsb3VkLWxvZ2luOmh0dHBzOi8veHZpaW5qdWh0dnpnYWxxdXBkZGMuc3VwYWJhc2UuY298AXsiaWQiOiJuYXRpdmVfdGVzdCIsInVzZXJuYW1lIjoibmF0aXZlX3Rlc3QiLCJsb2dpbktleSI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEifQEsTUVUQUFDQ0VTUzpodHRwczovL2FwcGFzc2V0cy5kY3NzaG5zLmludmFsaWQJCMez5OSPmO8XASZNRVRBOmh0dHBzOi8vYXBwYXNzZXRzLmRjc3NobnMuaW52YWxpZAwIx7Pk5I+Y7xcQtQE=",
+    "CURRENT": "TUFOSUZFU1QtMDAwMDAxCg==",
+    "MANIFEST-000001": "lXy5xSIAAQEabGV2ZWxkYi5CeXRld2lzZUNvbXBhcmF0b3ICAAMCBAA="
+  }
+}

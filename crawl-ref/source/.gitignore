@@ -1,5 +1,6 @@
 coverage-html-report/
 *.gcda
+*.o.tmp
 *.gcno
 *.gcov
 default.profraw

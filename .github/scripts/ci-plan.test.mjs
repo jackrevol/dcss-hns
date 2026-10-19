@@ -14,6 +14,7 @@ test('master의 코드 변경은 테스트 없이 빌드 결과를 게시한다'
   assert.equal(plan.extended, false)
   assert.equal(plan.tests, false)
   assert.equal(plan.parallel, true)
+  assert.equal(plan.standalone, true)
   assert.equal(plan.linux.include.length, 2)
   assert.equal(plan.msvc.include.length, 2)
   assert.equal(plan.desktop.include.length, 4)
@@ -87,5 +88,6 @@ test('수동 태그 재빌드는 워크플로 커밋 대신 지정 태그의 정
     assert.equal(values.extended, 'false')
     assert.equal(values.tests, 'false')
     assert.equal(values.parallel, 'false', '기존 태그의 스크립트에는 새 컴파일 분리를 강제하지 않는다')
+    assert.equal(values.standalone, 'false', '기존 Electron 태그는 필요한 npm 의존성을 계속 설치한다')
   } finally { rmSync(temporary, { recursive: true, force: true }) }
 })

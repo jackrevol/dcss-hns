@@ -21,9 +21,6 @@
 #if defined(UNIX) || defined(TARGET_COMPILER_MINGW)
 # include <unistd.h>
 #endif
-#if defined(TARGET_OS_MACOSX) && defined(USE_TILE_LOCAL)
-# include <mach-o/dyld.h>
-#endif
 
 #ifndef TARGET_OS_WINDOWS
 # include <langinfo.h>
@@ -79,6 +76,7 @@
 #include "hints.h"
 #include "hiscores.h"
 #include "hns-revival.h"
+#include "hns-native.h"
 #include "initfile.h"
 #include "invent.h"
 #include "item-name.h"
@@ -243,42 +241,31 @@ __attribute__((externally_visible))
 #endif
 int main(int argc, char *argv[])
 {
-#if defined(TARGET_OS_MACOSX) && defined(USE_TILE_LOCAL)
-    // Dock/Finder may reopen the embedded SDL app directly. Always start the
-    // save service first so menus, cloud saves and the profile stay connected.
-    // Read-only engine commands (-version, -save-version, etc.) remain direct.
-    if (argc == 1 && !getenv("HNS_DESKTOP_MANAGE"))
+#if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
+    vector<string> native_args;
+    vector<char*> native_argv;
+    try
     {
-        uint32_t size = 0;
-        _NSGetExecutablePath(nullptr, &size);
-        vector<char> path(size);
-        if (!_NSGetExecutablePath(path.data(), &size))
+        const string profile = hns_native_prepare(argc, argv, Version::Short);
+        if (!profile.empty())
         {
-            const string executable(path.data());
-            const string marker = "/Contents/Resources/native/DCSS HNS.app/Contents/MacOS/";
-            const auto offset = executable.rfind(marker);
-            if (offset != string::npos)
-            {
-                const string application = executable.substr(0, offset);
-                if (file_exists(application + "/Contents/Resources/app.asar"))
-                {
-                    vector<string> args = {"open", application};
-                    for (const char *name : {"HNS_DESKTOP_DATA", "HNS_DESKTOP_UI_TEST"})
-                        if (const char *value = getenv(name))
-                        {
-                            args.push_back("--env");
-                            args.push_back(string(name) + "=" + value);
-                        }
-                    vector<char*> pointers;
-                    for (auto &arg : args)
-                        pointers.push_back(&arg[0]);
-                    pointers.push_back(nullptr);
-                    execv("/usr/bin/open", pointers.data());
-                    fprintf(stderr, "Could not reopen DCSS HNS: %s\n", strerror(errno));
-                    return 1;
-                }
-            }
+            for (int i = 0; i < argc; ++i)
+                native_args.emplace_back(argv[i]);
+            const vector<string> paths = {"-rc", profile + "/init.txt", "-morgue", profile + "/morgue",
+                "-macro", profile + "/saves", "-extra-opt-last", "crawl_dir=" + profile,
+                "-extra-opt-last", "save_dir=" + profile + "/saves"};
+            native_args.insert(native_args.end(), paths.begin(), paths.end());
+            for (auto &arg : native_args)
+                native_argv.push_back(&arg[0]);
+            argc = native_argv.size();
+            native_argv.push_back(nullptr);
+            argv = native_argv.data();
         }
+    }
+    catch (const std::exception &error)
+    {
+        fprintf(stderr, "DCSS HNS: %s\n", error.what());
+        return 1;
     }
 #endif
 #ifdef DGAMELAUNCH

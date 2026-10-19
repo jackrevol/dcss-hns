@@ -96,6 +96,7 @@ for (@files)
     # just be needlessly confusing.
     next if /catch_amalgamated\.hpp/;
     next if /catch_amalgamated\.cc/;
+    next if m{contrib/hns-native/(json\.hpp|picosha2\.h)$};
     next if !/\./ and !/util\//;
     my $tab = /Makefile/i;      # Allow tabs for makefiles.
     my $bom = /\.js$/;          # And BOM for these.

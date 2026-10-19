@@ -2,12 +2,16 @@
 
 #if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
 #include "hns-desktop.h"
+#include "hns-native.h"
+#include <chrono>
+#include <future>
 #include "end.h"
 #include "files.h"
 #include "json.h"
 #include "outer-menu.h"
 #include "scroller.h"
 #include "state.h"
+#include "tags.h"
 #include "stringutil.h"
 #include "syscalls.h"
 #include "ui.h"
@@ -17,6 +21,7 @@ namespace
 {
 using json_ptr = unique_ptr<JsonNode, void (*)(JsonNode*)>;
 bool menu_busy = false;
+string pick_file(bool saving, const string &filename);
 
 string text(const JsonNode *node, const char *key)
 {
@@ -41,6 +46,54 @@ void message(const string &title, const string &body)
 json_ptr request(const string &kind, bool &reload, JsonNode *values = nullptr)
 {
     unwind_bool busy(menu_busy, true);
+    if (hns_native_enabled())
+    {
+        json_ptr inputs(values ? values : json_mkobject(), json_delete);
+        while (true)
+        {
+            char *encoded = json_encode(inputs.get());
+            const string arguments(encoded);
+            free(encoded);
+            auto future = std::async(std::launch::async, [kind, arguments]() {
+                return hns_native_action(kind, arguments);
+            });
+            {
+                ui::progress_popup progress("HNS settings / saves", 35);
+                progress.set_status_text("Working... Local saves are preserved.");
+                while (future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+                {
+                    ui::pump_events(100);
+                    progress.advance_progress();
+                }
+            }
+            json_ptr result(json_decode(future.get().c_str()), json_delete);
+            menu_busy = false;
+            if (!result)
+            {
+                message("HNS", "Could not read the in-game save response. Local saves are kept.");
+                return result;
+            }
+            const string picker = text(result.get(), "chooseFile");
+            if (!picker.empty())
+            {
+                const auto path = pick_file(picker == "save", text(result.get(), "filename"));
+                if (path.empty())
+                {
+                    json_ptr cancelled(json_mkobject(), json_delete);
+                    json_append_member(cancelled.get(), "ok", json_mkbool(true));
+                    json_append_member(cancelled.get(), "message", json_mkstring("Cancelled."));
+                    return cancelled;
+                }
+                json_append_member(inputs.get(), "path", json_mkstring(path));
+                menu_busy = true;
+                continue;
+            }
+            reload = reload || flag(result.get(), "reload");
+            if (!flag(result.get(), "ok"))
+                message("HNS", text(result.get(), "message"));
+            return result;
+        }
+    }
     const char *response = getenv("HNS_DESKTOP_RESPONSE");
     if (!response || !*response)
         return json_ptr(nullptr, json_delete);
@@ -221,6 +274,90 @@ bool form(const string &title, const vector<string> &labels, vector<string> &val
         for (size_t i = 0; i < values.size(); ++i)
             values[i] = entries[i]->get_text();
     return accepted;
+}
+
+string pick_file(bool saving, const string &filename)
+{
+    json_ptr start(json_decode(hns_native_action("file-start", "{}").c_str()), json_delete);
+    string directory = text(start.get(), "path");
+    if (directory.empty())
+        directory = ".";
+    while (true)
+    {
+        const auto files = hns_native_files(directory);
+        vector<string> labels = {saving ? "Save in this folder" : "Enter full path",
+            "Parent folder", saving ? "Enter full path" : "Cancel", saving ? "Cancel" : "Refresh"};
+        for (const auto &file : files)
+        {
+            string name = file;
+            std::replace(name.begin(), name.end(), '\\', '/');
+            const bool folder = !name.empty() && name.back() == '/';
+            if (folder)
+                name.pop_back();
+            name = name.substr(name.find_last_of('/') + 1);
+            labels.push_back((folder ? "[Folder] " : "") + name);
+        }
+        const int choice = choose((saving ? "Export file\n" : "Import save backup\n") + directory, labels);
+        if (choice < 0 || choice == (saving ? 3 : 2))
+            return "";
+        if (choice == 1)
+        {
+            const auto slash = directory.find_last_of('/');
+            if (slash != string::npos)
+                directory = slash ? directory.substr(0, slash) : "/";
+            continue;
+        }
+        string selected;
+        if (saving && choice == 0)
+        {
+            vector<string> name = {filename};
+            if (!form("Export backup", {"File name"}, name))
+                continue;
+            if (name[0].empty() || name[0] == "." || name[0] == ".."
+                || name[0].find_first_of("/\\:") != string::npos)
+            {
+                message("Export", "Enter a file name without path separators.");
+                continue;
+            }
+            selected = directory + "/" + name[0];
+        }
+        else if (choice == (saving ? 2 : 0))
+        {
+            vector<string> path = {saving ? directory + "/" + filename : directory + "/"};
+            if (!form("File path", {"Full path"}, path))
+                continue;
+            selected = path[0];
+        }
+        else if (choice >= 4 && choice - 4 < static_cast<int>(files.size()))
+        {
+            selected = files[choice - 4];
+            if (!selected.empty() && selected.back() == '/')
+            {
+                directory = selected.substr(0, selected.size() - 1);
+                continue;
+            }
+            if (saving)
+                selected = directory + "/" + filename;
+        }
+        else
+            continue;
+        if (dir_exists(selected))
+        {
+            directory = selected;
+            continue;
+        }
+        if (!saving && !file_exists(selected))
+        {
+            message("Import", "The file does not exist.");
+            continue;
+        }
+        if (saving && file_exists(selected)
+            && choose("Replace this exported file?\n" + selected, {"Cancel", "Replace"}) != 1)
+        {
+            continue;
+        }
+        return selected;
+    }
 }
 
 void show_result(const json_ptr &result)
@@ -537,5 +674,35 @@ bool hns_desktop_menu(int menu)
 bool hns_desktop_menu_busy()
 {
     return menu_busy;
+}
+
+void hns_desktop_native_start()
+{
+    static bool started = false;
+    if (started || !hns_native_enabled())
+        return;
+    started = true;
+    unwind_bool busy(menu_busy, true);
+    auto future = std::async(std::launch::async, []() {
+        hns_native_start([](const string &path) {
+            try
+            {
+                package save(path.c_str(), false);
+                reader character(&save, "chr");
+                const auto version = get_save_version(character);
+                return version.valid() && version >= save_version::minimum_supported()
+                    && version <= save_version::current();
+            }
+            catch (...) { return false; }
+        });
+    });
+    ui::progress_popup progress("Cloud saves", 35);
+    progress.set_status_text("Checking latest saves... Offline play remains available.");
+    while (future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+    {
+        ui::pump_events(100);
+        progress.advance_progress();
+    }
+    future.get();
 }
 #endif

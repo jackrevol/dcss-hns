@@ -27,6 +27,7 @@
 #include "cio.h"
 #include "files.h"
 #include "hns-desktop.h"
+#include "hns-native.h"
 #include "glwrapper.h"
 #include "libutil.h"
 #include "options.h"
@@ -1089,7 +1090,7 @@ int SDLWrapper::send_textinput(wm_event *event)
 int SDLWrapper::wait_event(wm_event *event, int timeout)
 {
     SDL_Event sdlevent;
-    if (getenv("HNS_DESKTOP_CHECKPOINT"))
+    if (hns_native_enabled() || getenv("HNS_DESKTOP_CHECKPOINT"))
     {
         hns_desktop_checkpoint();
         timeout = min(timeout, 250);

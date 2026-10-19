@@ -86,7 +86,7 @@ def _packages_to_install(args: argparse.Namespace) -> Set[str]:
         # dependencies for llvm.sh
         packages.update(["lsb-release", "wget", "software-properties-common"])
     if args.appimage:
-        packages.add("libfuse2")
+        packages.update(["libfuse2", "libcurl4-openssl-dev"])
     if args.debian_packages:
         packages.update(["cowbuilder", "debhelper"])
     return packages

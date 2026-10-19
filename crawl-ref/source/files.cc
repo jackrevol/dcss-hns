@@ -14,6 +14,7 @@
 
 #include "files.h"
 #include "hns-desktop.h"
+#include "hns-native.h"
 #ifdef USE_TILE_LOCAL
 #include "windowmanager.h"
 #endif
@@ -2735,7 +2736,7 @@ void save_game(bool leave_game, const char *farewellmsg)
     {
 #if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
         // PC 클라우드 체크포인트에도 현재 층과 Lua·매크로 상태를 포함합니다.
-        if (getenv("HNS_DESKTOP_CHECKPOINT"))
+        if (hns_native_enabled() || getenv("HNS_DESKTOP_CHECKPOINT"))
         {
             clua.save_persist();
             if (crawl_state.unsaved_macros)
@@ -2789,10 +2790,15 @@ void save_game_state()
 void hns_desktop_checkpoint(bool background)
 {
     const char *request = getenv("HNS_DESKTOP_CHECKPOINT");
-    if (!request || !*request)
+    const bool native = hns_native_enabled();
+    if (!native && (!request || !*request))
         return;
+#ifndef __ANDROID__
+    if (hns_desktop_menu_busy())
+        return;
+#endif
     static bool pending = false;
-    pending = pending || background || file_exists(request);
+    pending = pending || (native ? hns_native_checkpoint_due(background) : background || file_exists(request));
     if (!pending || crawl_state.saving_game || Options.no_save
         || crawl_state.disables[DIS_SAVE_CHECKPOINTS]
         || (!crawl_state.waiting_for_command && !crawl_state.waiting_for_ui)
@@ -2802,13 +2808,19 @@ void hns_desktop_checkpoint(bool background)
         return;
     }
     pending = false;
-    unlink_u(request);
+    if (request && *request)
+        unlink_u(request);
     save_game(false);
     hns_desktop_saved();
 }
 
 void hns_desktop_saved()
 {
+    if (hns_native_enabled())
+    {
+        hns_native_saved();
+        return;
+    }
     const char *request = getenv("HNS_DESKTOP_CHECKPOINT");
     if (!request || !*request)
         return;

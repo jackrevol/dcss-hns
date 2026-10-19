@@ -86,6 +86,7 @@ sub rebrace($$$)
 for my $f (@files)
 {
     next if $f =~ /catch_amalgamated\.cc/;
+    next if $f =~ m{contrib/hns-native/(json\.hpp|picosha2\.h)$};
     open F, "<", $f or (print(STDERR "Can't read $f\n"), next);
     my $old = $_ = <F>;
     close F;

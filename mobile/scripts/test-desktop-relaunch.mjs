@@ -1,4 +1,4 @@
-// macOS 로컬 회귀 검사: 바깥 앱 종료 후 Dock이 기억한 내부 SDL 앱으로 재실행합니다.
+// macOS 로컬 회귀 검사: 같은 SDL 단독 앱을 종료하고 두 번 다시 엽니다.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -11,10 +11,8 @@ import { build } from 'esbuild'
 assert.equal(process.platform, 'darwin', 'Run this regression check locally on macOS')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const app = resolve(process.env.HNS_DESKTOP_APP || resolve(root, 'build/desktop/DCSS HNS-darwin-arm64/DCSS HNS.app'))
-const inner = resolve(app, 'Contents/Resources/native/DCSS HNS.app')
 const binary = bundle => resolve(bundle, 'Contents/MacOS/DCSS HNS')
-const bundleID = bundle => execFileSync('plutil', ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', resolve(bundle, 'Contents/Info.plist')], { encoding: 'utf8' }).trim()
-assert.notEqual(bundleID(app), bundleID(inner), 'The launcher and SDL engine must have different app identities')
+assert.equal(existsSync(resolve(app, 'Contents/Resources/app.asar')), false, 'Electron must not be packaged')
 const temporary = mkdtempSync(resolve(tmpdir(), 'hns-relaunch-'))
 const profile = resolve(temporary, 'profile'), crawl = resolve(profile, 'native/crawl')
 const output = resolve(root, 'test-results/desktop-relaunch')
@@ -23,7 +21,7 @@ const processes = () => execFileSync('ps', ['-axo', 'pid=,ppid=,command='], { en
   const match = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(line)
   return match ? [{ pid: Number(match[1]), parent: Number(match[2]), command: match[3] }] : []
 })
-const owned = () => processes().filter(p => [binary(app), binary(inner)].some(path => p.command === path || p.command.startsWith(path + ' ')))
+const owned = () => processes().filter(p => [binary(app)].some(path => p.command === path || p.command.startsWith(path + ' ')))
 let launched = false
 async function wait(predicate, timeout = 60_000) {
   const deadline = Date.now() + timeout
@@ -51,7 +49,7 @@ try {
   }
   // A previous native session awaiting recovery seeds the same persistent IDB.
   writeFileSync(resolve(profile, 'native/active.json'), JSON.stringify({ name: '' }))
-  for (const [index, entry] of [app, inner, inner].entries()) {
+  for (const [index, entry] of [app, app, app].entries()) {
     const report = resolve(temporary, `report-${index}.json`), plan = resolve(temporary, `plan-${index}.json`)
     const steps = []
     const step = (kind, value, field) => steps.push({ kind, value, index: field })
@@ -65,20 +63,20 @@ try {
     step('snapshot', resolve(output, `options-${index}.png`)); step('activate', 'Discard changes')
     step('expect', '[F7] Cloud saves'); step('complete')
     writeFileSync(plan, JSON.stringify({ report, steps }))
-    execFileSync('open', [entry, '--env', 'HNS_DESKTOP_DATA=' + profile, '--env', 'HNS_DESKTOP_UI_TEST=' + plan])
+    execFileSync('open', ['-n', entry, '--env', 'HNS_DESKTOP_DATA=' + profile, '--env', 'HNS_DESKTOP_UI_TEST=' + plan])
     launched = true
     await wait(() => existsSync(report))
     assert.equal(JSON.parse(readFileSync(report, 'utf8')).ok, true)
-    const pid = JSON.parse(readFileSync(resolve(profile, 'native/active.json'), 'utf8')).pid
+    const pid = JSON.parse(readFileSync(resolve(profile, 'native/active.lock/owner.json'), 'utf8')).pid
     const running = processes(), engine = running.find(p => p.pid === pid)
-    assert.ok(engine?.command.startsWith(binary(inner)), 'The SDL engine must be running')
-    assert.ok(running.some(p => p.pid === engine.parent && p.command.startsWith(binary(app))), 'The save service must own the SDL engine after reopening')
-    assert.ok(engine.command.includes(resolve(crawl, 'init.txt')), 'Reopening must retain the same profile')
+    assert.ok(engine?.command.startsWith(binary(app)), 'The SDL app itself must own the persistent profile')
+    assert.equal(owned().length, 1, 'There must be exactly one game application process')
+    assert.equal(running.some(p => p.parent === pid && /Electron|Helper|native-session/.test(p.command)), false, 'No browser/save-service child may be running')
     assert.deepEqual(readFileSync(resolve(crawl, 'saves/HnsSmoke.cs')), Buffer.from(character.data))
     writeFileSync(plan + '.done', '')
     await wait(() => owned().length === 0, 20_000)
     assert.match(readFileSync(resolve(crawl, 'init.txt'), 'utf8'), /hns_floor_item_rate = 450/)
-    console.log(`PASS: ${index === 0 ? 'outer app launch' : 'embedded app relaunch ' + index}, SDL menus, unchanged character save, persistent settings, save service ownership`)
+    console.log(`PASS: ${index === 0 ? 'outer app launch' : 'standalone relaunch ' + index}, SDL menus, unchanged character save, persistent settings, single SDL process`)
   }
 } finally {
   // Only disposable processes started by this isolated profile may be stopped.
