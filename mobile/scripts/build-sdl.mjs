@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeF
 import { resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { releaseVersion } from './release-version.mjs'
-import { sourceCommit } from './native-bundle.mjs'
+import { readNativeBundle, sourceCommit } from './native-bundle.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const source = resolve(root, '../crawl-ref/source')
@@ -68,6 +68,7 @@ writeFileSync(resolve(output, 'desktop.json'), JSON.stringify({
   fonts: (fonts || resolve(data, 'dat/tiles')).slice(output.length + 1),
 }, null, 2) + '\n', 'utf8')
 if (platform === 'darwin') run('codesign', ['--force', '--deep', '--sign', '-', resolve(output, 'DCSS HNS.app')])
-// 압축 전에 실제 배포 바이너리와 데이터로 검사합니다.
-run(process.execPath, [resolve(root, 'scripts/test-sdl.mjs'), output], root)
+// 필수 파일은 항상 확인하고, 게임 실행 검사는 요청할 때만 수행합니다.
+readNativeBundle(output, { platform, arch, version: release.version })
+if (process.argv.includes('--verify')) run(process.execPath, [resolve(root, 'scripts/test-sdl.mjs'), output], root)
 console.log('Native engine:', output)

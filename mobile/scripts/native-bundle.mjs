@@ -21,5 +21,12 @@ export function readNativeBundle(directory, expected) {
     const info = statSync(path)
     if (!(key === 'binary' ? info.isFile() : info.isDirectory())) throw new Error(`Invalid native bundle ${key}`)
   }
+  for (const path of [
+    resolve(root, manifest.data, 'dat/tiles/floor.png'),
+    resolve(root, manifest.data, 'settings/init.txt'),
+    ...['DejaVuSans.ttf', 'DejaVuSansMono.ttf'].map(name => resolve(root, manifest.fonts, name)),
+  ]) {
+    if (!statSync(path).isFile()) throw new Error(`Invalid native bundle file: ${path}`)
+  }
   return manifest
 }

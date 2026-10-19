@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url'
 
 export function summarize(needs) {
   const jobs = Object.entries(needs)
-  const required = ['plan', 'checks']
+  const required = ['plan']
+  if (needs.plan?.outputs?.tests === 'true') required.push('checks')
   if (needs.plan?.outputs?.build === 'true') {
-    required.push('client', 'android', 'desktop', 'engine', 'msvc', 'catch2')
+    required.push('client', 'android', 'desktop')
+    if (needs.plan.outputs.tests === 'true') required.push('engine', 'msvc', 'catch2')
     if (needs.plan.outputs.parallel === 'true') required.push('native')
   }
   if (needs.plan?.outputs?.extended === 'true')

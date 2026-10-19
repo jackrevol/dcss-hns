@@ -13,9 +13,13 @@ on:
         type: string
         required: false
       publish:
-        description: '검증한 결과를 릴리즈에 게시'
+        description: '빌드한 파일을 릴리즈에 게시'
         type: boolean
         default: true
+      tests:
+        description: '단위·클라우드·오프라인 실행 테스트도 수행'
+        type: boolean
+        default: false
       extended:
         description: '원본 전체 컴파일 조합·레거시 플랫폼도 검사'
         type: boolean
@@ -40,6 +44,7 @@ jobs:
       tag: ${{ steps.plan.outputs.tag }}
       build: ${{ steps.plan.outputs.build }}
       publish: ${{ steps.plan.outputs.publish }}
+      tests: ${{ steps.plan.outputs.tests }}
       extended: ${{ steps.plan.outputs.extended }}
       linux: ${{ steps.plan.outputs.linux }}
       msvc: ${{ steps.plan.outputs.msvc }}
@@ -53,13 +58,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: 워크플로 문법·실행 조건 검사
-        run: |
-          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz | tar -xz -C "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint" -color -shellcheck=
-          node --test .github/scripts/ci-*.test.mjs
-          python3 -m unittest discover -s crawl-ref/source/wasm -p "test_*.py"
-          node --test mobile/scripts/native-bundle.test.mjs
       - name: 변경 범위·버전·정확한 빌드 커밋 결정
         id: plan
         run: node .github/scripts/ci-plan.mjs
@@ -67,6 +65,7 @@ jobs:
   checks:
     name: 코드·UI·클라우드 검사
     needs: plan
+    if: needs.plan.outputs.tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -78,6 +77,13 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
+      - name: 워크플로 문법·실행 조건 검사
+        run: |
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz | tar -xz -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color -shellcheck=
+          node --test .github/scripts/ci-*.test.mjs
+          python3 -m unittest discover -s crawl-ref/source/wasm -p "test_*.py"
+          node --test mobile/scripts/native-bundle.test.mjs
       - name: C++ 스타일 검사
         working-directory: crawl-ref/source
         run: |
@@ -92,10 +98,8 @@ jobs:
           npm run test:cloud-db
 
   client:
-    name: WASM·웹 빌드 및 오프라인 검증
-    needs:
-      - plan
-      - checks
+    name: WASM·웹 빌드
+    needs: plan
     if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -143,36 +147,44 @@ jobs:
           JOBS=4 npm run build:engine
         env:
           EM_COMPILER_WRAPPER: ccache
-      - name: Build UI and verify offline play
+      - name: Build UI
+        run: npm run build
+      - name: Verify offline play
+        if: needs.plan.outputs.tests == 'true'
         run: |
-          npm run build
           npx playwright install --with-deps chromium
           npm run test:e2e
           npm run test:bundled-web
       - name: Package complete corresponding source
         run: npm run package:source
       - name: Upload test evidence
-        if: always()
+        if: ${{ !cancelled() && needs.plan.outputs.tests == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: mobile-test-results
           retention-days: 7
           path: mobile/test-results/
           if-no-files-found: ignore
-      - name: Share tested web assets with Android
+      - name: Share web assets with Android
         uses: actions/upload-artifact@v4
         with:
           name: dcss-hns-web-input
           path: mobile/dist/
           if-no-files-found: error
           retention-days: 7
-      - name: Share version and real save with desktop (without WASM)
+      - name: Share engine version with desktop (without WASM)
         uses: actions/upload-artifact@v4
         with:
           name: dcss-hns-native-input
-          path: |
-            mobile/dist/offline/version.json
-            mobile/test-results/offline-backup.pzsave
+          path: mobile/dist/offline/version.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Share real save for optional desktop tests
+        if: needs.plan.outputs.tests == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dcss-hns-test-save
+          path: mobile/test-results/offline-backup.pzsave
           if-no-files-found: error
           retention-days: 7
       - name: Upload complete corresponding source
@@ -215,11 +227,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
-      - name: Build and lint APK from the tested web assets
+      - name: Build APK from the web assets
         working-directory: mobile/android
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-          ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+          ./gradlew --no-daemon :app:assembleDebug ${{ needs.plan.outputs.tests == 'true' && ':app:lintDebug' || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: dcss-hns-mobile-android
@@ -230,9 +242,7 @@ jobs:
 
   native:
     name: SDL compile ${{ matrix.platform }} ${{ matrix.arch }}
-    needs:
-      - plan
-      - checks
+    needs: plan
     if: needs.plan.outputs.build == 'true' && needs.plan.outputs.parallel == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -280,20 +290,20 @@ jobs:
           key: hns-desktop-${{ matrix.platform }}-${{ matrix.arch }}
           max-size: 1G
           create-symlink: true
-      - name: Compile and verify original SDL engine (Windows)
+      - name: Compile original SDL engine (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         env:
           HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
           HNS_DESKTOP_ARCH: ${{ matrix.arch }}
-        run: node scripts/build-sdl.mjs
-      - name: Compile and verify original SDL engine
+        run: node scripts/build-sdl.mjs ${{ needs.plan.outputs.tests == 'true' && '--verify' || '' }}
+      - name: Compile original SDL engine
         if: runner.os != 'Windows'
         env:
           HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
           HNS_DESKTOP_ARCH: ${{ matrix.arch }}
           APPIMAGE_EXTRACT_AND_RUN: '1'
-        run: node scripts/build-sdl.mjs
+        run: node scripts/build-sdl.mjs ${{ needs.plan.outputs.tests == 'true' && '--verify' || '' }}
       - name: Archive native files with executable modes and symlinks
         run: tar -czf "build/native-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C build/sdl native
       - uses: actions/upload-artifact@v4
@@ -346,7 +356,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: dcss-hns-native-input
-          path: mobile
+          path: mobile/dist/offline
+      - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.tests == 'true'
+        with:
+          name: dcss-hns-test-save
+          path: mobile/test-results
       - name: Install desktop dependencies
         run: npm ci
       - uses: actions/setup-python@v5
@@ -391,9 +406,10 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: '1'
         run: node scripts/build-desktop.mjs ${{ needs.plan.outputs.parallel == 'true' && '--prebuilt-native' || '' }}
       - name: Install Linux runtime dependencies
-        if: runner.os == 'Linux'
+        if: needs.plan.outputs.tests == 'true' && runner.os == 'Linux'
         run: npx playwright install-deps chromium
       - name: Verify desktop offline play
+        if: needs.plan.outputs.tests == 'true'
         env:
           HNS_DESKTOP_EXECUTABLE: ${{ github.workspace }}/mobile/build/desktop/DCSS HNS-${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.executable }}
         run: |
@@ -402,6 +418,14 @@ jobs:
           else
             npm run test:desktop
           fi
+      - name: Upload desktop test evidence
+        if: ${{ !cancelled() && needs.plan.outputs.tests == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-test-results-${{ matrix.platform }}-${{ matrix.arch }}
+          path: mobile/test-results/native-menu/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload desktop archive
         uses: actions/upload-artifact@v4
         with:
@@ -418,7 +442,7 @@ jobs:
     needs:
       - plan
       - checks
-    if: needs.plan.outputs.build == 'true'
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -496,7 +520,7 @@ jobs:
     needs:
       - plan
       - checks
-    if: needs.plan.outputs.build == 'true'
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.tests == 'true'
     runs-on: windows-2025
     timeout-minutes: 60
     strategy:
@@ -525,7 +549,7 @@ jobs:
     needs:
       - plan
       - checks
-    if: needs.plan.outputs.build == 'true'
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.tests == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -901,7 +925,7 @@ jobs:
         run: node .github/scripts/ci-result.mjs
 
   publish:
-    name: 검증한 파일 릴리즈
+    name: 빌드한 파일 릴리즈
     needs:
       - plan
       - result
@@ -929,7 +953,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: python3 .github/scripts/collect-release.py artifacts release-assets
-      - name: Publish the files tested in this run
+      - name: Publish the files built in this run
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}

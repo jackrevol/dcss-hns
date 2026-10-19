@@ -1,7 +1,7 @@
 import { _electron as electron, expect } from '@playwright/test'
 import { build } from 'esbuild'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -143,8 +143,12 @@ try {
   console.log('PASS: original SDL menus, automatic cloud upload, directional copies and cancellation, masked password, settings and backup import/export')
 } catch (error) {
   console.error(logs.join('\n'))
+  writeFileSync(resolve(output, 'electron.log'), logs.join('\n'), 'utf8')
   for (const suffix of ['.progress', '.stderr']) {
-    if (existsSync(plan + suffix)) console.error(readFileSync(plan + suffix, 'utf8'))
+    if (existsSync(plan + suffix)) {
+      copyFileSync(plan + suffix, resolve(output, 'native' + suffix))
+      console.error(readFileSync(plan + suffix, 'utf8'))
+    }
   }
   throw error
 } finally {

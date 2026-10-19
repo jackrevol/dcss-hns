@@ -10,6 +10,10 @@ function bundle(t) {
   const directory = mkdtempSync(join(tmpdir(), 'hns-native-bundle-'))
   t.after(() => rmSync(directory, { recursive: true, force: true }))
   mkdirSync(join(directory, 'data/fonts'), { recursive: true })
+  mkdirSync(join(directory, 'data/dat/tiles'), { recursive: true })
+  mkdirSync(join(directory, 'data/settings'), { recursive: true })
+  for (const path of ['dat/tiles/floor.png', 'settings/init.txt', 'fonts/DejaVuSans.ttf', 'fonts/DejaVuSansMono.ttf'])
+    writeFileSync(join(directory, 'data', path), 'asset')
   writeFileSync(join(directory, 'crawl'), 'binary')
   writeFileSync(join(directory, 'desktop.json'), JSON.stringify({
     client: 'sdl-tiles', ...expected, binary: 'crawl', data: 'data', fonts: 'data/fonts',
@@ -35,4 +39,11 @@ test('누락된 바이너리와 번들 밖의 경로는 거부한다', t => {
   writeFileSync(path, JSON.stringify(manifest))
   rmSync(join(directory, 'crawl'))
   assert.throws(() => readNativeBundle(directory, expected), /ENOENT/)
+})
+test('실행 테스트 없이도 필수 게임 데이터와 폰트 누락은 빌드를 막는다', t => {
+  for (const path of ['dat/tiles/floor.png', 'settings/init.txt', 'fonts/DejaVuSans.ttf', 'fonts/DejaVuSansMono.ttf']) {
+    const directory = bundle(t)
+    rmSync(join(directory, 'data', path))
+    assert.throws(() => readNativeBundle(directory, expected), /ENOENT/)
+  }
 })
