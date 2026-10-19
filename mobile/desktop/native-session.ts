@@ -86,7 +86,11 @@ export function createNativeSession(home: string, assets: string, launch: typeof
         let newline: number
         while ((newline = output.indexOf('\n')) !== -1) {
           const line = output.slice(0, newline).trim(); output = output.slice(newline + 1)
-          if (!line.startsWith('HNS_DESKTOP_ACTION ') || pendingAction || !onAction) continue
+          if (!line.startsWith('HNS_DESKTOP_ACTION ')) {
+            if (process.env.HNS_DESKTOP_UI_TEST) appendFileSync(process.env.HNS_DESKTOP_UI_TEST + '.stderr', line + '\n', 'utf8')
+            continue
+          }
+          if (pendingAction || !onAction) continue
           let action: DesktopAction
           try {
             action = JSON.parse(line.slice('HNS_DESKTOP_ACTION '.length))

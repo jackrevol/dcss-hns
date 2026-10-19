@@ -88,9 +88,9 @@ export function unpackSave(bytes: ArrayBuffer | Uint8Array): { meta: SavePackMet
   const view = bytes instanceof Uint8Array
     ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : new Uint8Array(bytes)
   const headerLen = MAGIC.length + 4
-  if (view.byteLength < headerLen) throw new Error('not a PocketZot save pack (too short)')
+  if (view.byteLength < headerLen) throw new Error('Invalid save backup (too short)')
   if (new TextDecoder().decode(view.subarray(0, MAGIC.length)) !== MAGIC)
-    throw new Error('not a PocketZot save pack (bad magic)')
+    throw new Error('Invalid save backup (bad magic)')
   const manifestLen = new DataView(view.buffer, view.byteOffset).getUint32(MAGIC.length, true)
   const dataStart = headerLen + manifestLen
   if (dataStart > view.byteLength) throw new Error('save pack truncated (manifest)')
@@ -149,7 +149,7 @@ export async function fetchEngineBuild(timeoutMs = 1500): Promise<string | undef
 export function buildExportPackFile(files: SavedFile[], build: string | undefined): File {
   const pack = packSave(files, { exportedAt: new Date().toISOString(), build })
   return new File([pack.buffer as ArrayBuffer],
-    `pocketzot-offline-${new Date().toISOString().slice(0, 10)}.pzsave`,
+    `dcss-hns-${new Date().toISOString().slice(0, 10)}.pzsave`,
     { type: 'application/octet-stream' })
 }
 

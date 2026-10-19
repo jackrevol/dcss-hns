@@ -13,6 +13,8 @@ const fixture = process.env.HNS_DESKTOP_PACK || resolve(root, 'test-results/offl
 const report = resolve(profile, 'report.json'), exported = resolve(profile, 'export.pzsave')
 const steps = []
 const step = (kind, value, index) => steps.push({ kind, value, index })
+step('expect', 'Loading complete, press any key to start.')
+step('enter')
 for (const label of ['[F2] Item drops', '[F3] Options file', '[F4] Past games / morgues', '[F5] Export save backup', '[F6] Import save backup', '[F7] Cloud saves']) step('expect', label)
 step('snapshot', resolve(output, 'main.png'))
 if (existsSync(fixture)) {
@@ -52,7 +54,10 @@ try {
   assert.equal(await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.isVisible())), false)
   assert.equal(await page.evaluate(async () => (await fetch('/index.html')).ok), false, 'Mobile entry must not be shipped in PC packages')
   await instance.evaluate(({ dialog }, paths) => {
-    dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.exported })
+    dialog.showSaveDialog = async options => {
+      if (!/[\\/]dcss-hns-\d{4}-\d{2}-\d{2}\.pzsave$/.test(options.defaultPath)) throw new Error('Backup filename must use DCSS HNS branding')
+      return { canceled: false, filePath: paths.exported }
+    }
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.fixture] })
   }, { exported, fixture })
   const active = resolve(profile, 'native/active.json')
@@ -78,5 +83,6 @@ try {
 } finally {
   if (pid) { try { process.kill(pid) } catch {} }
   await instance.close().catch(() => {})
-  rmSync(profile, { recursive: true, force: true })
+  if (process.env.HNS_DESKTOP_KEEP_TEST_PROFILE) console.log('Native menu test profile:', profile)
+  else rmSync(profile, { recursive: true, force: true })
 }

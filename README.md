@@ -2,7 +2,7 @@
 
 # DCSS HNS
 
-> 이 브랜치의 PC 메인 메뉴 통합은 작업 중입니다. SDL 메뉴 통합 검사 실패와
+> PC 클라이언트는 원본 SDL 메뉴와 조작을 사용합니다. 플랫폼별 검증 현황과
 > 다른 컴퓨터에서의 재개 방법은 [인수인계 문서](HANDOFF.md)를 확인하세요.
 
 [Dungeon Crawl Stone Soup](https://github.com/crawl/crawl)의 HNS 포크입니다.

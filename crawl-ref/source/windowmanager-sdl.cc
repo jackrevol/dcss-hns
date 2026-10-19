@@ -140,10 +140,10 @@ static bool _hns_menu_test_event(wm_event *event)
             end(1, false, "Native UI input not found");
         inputs[i]->set_text(value);
     }
-    else if (kind == "escape")
+    else if (kind == "escape" || kind == "enter")
     {
         event->type = WME_KEYDOWN;
-        event->key.keysym.sym = CK_ESCAPE;
+        event->key.keysym.sym = kind == "enter" ? CK_ENTER : CK_ESCAPE;
     }
     else if (kind == "snapshot")
     {

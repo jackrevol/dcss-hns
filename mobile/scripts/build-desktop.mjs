@@ -29,14 +29,12 @@ cpSync(resolve(root, 'build/desktop-web'),resolve(input,'web'),{recursive:true})
 cpSync(resolve(root, 'public/_headers'), resolve(input, 'web/_headers'))
 await build({ entryPoints: [resolve(root, 'desktop/native-session.ts')], outfile: resolve(input, 'native-session.cjs'),
   bundle: true, platform: 'node', target: 'node22', format: 'cjs', define: { 'import.meta.env': '{}' } })
-// PC 관리 창에는 게임용 모바일 WASM을 넣지 않습니다.
+// PC 저장 서비스에는 게임용 모바일 WASM을 넣지 않습니다.
 rmSync(resolve(input, 'web/offline'), { recursive: true, force: true })
 mkdirSync(resolve(input, 'web/offline'), { recursive: true })
 writeFileSync(resolve(input, 'web/offline/version.json'), JSON.stringify(version), 'utf8')
 mkdirSync(resolve(input, 'web/desktop-assets'), { recursive: true })
 const manifest = JSON.parse(readFileSync(resolve(native, 'desktop.json'), 'utf8'))
-cpSync(resolve(native, manifest.fonts, 'DejaVuSansMono.ttf'), resolve(input, 'web/desktop-assets/DejaVuSansMono.ttf'))
-cpSync(resolve(native, manifest.data, 'dat/tiles/logo.png'), resolve(input, 'web/desktop-assets/logo.png'))
 cpSync(resolve(native, manifest.data, 'dat/tiles/stone_soup_icon-512x512.png'), resolve(input, 'web/desktop-assets/icon.png'))
 rmSync(resolve(input,'web/sw.js'),{force:true})
 for (const name of ['LICENSE','ATTRIBUTION.md']) cpSync(resolve(root,name),resolve(input,'web',name+'.txt'))
