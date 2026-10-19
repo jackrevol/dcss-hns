@@ -7,7 +7,9 @@
 #include <future>
 #include "end.h"
 #include "files.h"
+#include "initfile.h"
 #include "json.h"
+#include "options.h"
 #include "outer-menu.h"
 #include "scroller.h"
 #include "state.h"
@@ -372,7 +374,7 @@ void loot(bool &reload)
         "hns_good_item_chance", "hns_randart_chance", "hns_gold_amount", "hns_consumable_amount"};
     const vector<string> labels = {"Floor item amount (0-10x)", "Item quality factor (0-10x)",
         "Minimum quality level (0-50)", "Good item chance (0-100%)", "Random artefact chance (0-100%)",
-        "Gold stack amount (0.01-10x)", "Consumable stack amount (0.01-10x)"};
+        "Gold stack amount (0.01-10x)", "Floor consumable stack amount (0.01-10x)"};
     const int scale[] = {100, 100, 1, 1, 1, 100, 100};
     const int minimum[] = {0, 0, 0, 0, 0, 1, 1};
     const int maximum[] = {1000, 1000, 50, 100, 100, 1000, 1000};
@@ -398,6 +400,8 @@ void loot(bool &reload)
                 "Quality scales the depth quality factor, not enchantment bonuses.\n"
                 "Set a minimum quality level to improve shallow-floor items.\n"
                 "Artefact chances apply to weapons, armour, jewellery and talismans.\n"
+                "Consumable stacks also scale in vaults and special rooms.\n"
+                "Other drop options only affect ordinary random floor loot.\n"
                 "Existing floors, monster equipment, shops and god gifts are unchanged.");
             continue;
         }
@@ -427,7 +431,10 @@ void loot(bool &reload)
         auto result = request("loot-save", reload, object);
         show_result(result);
         if (result && flag(result.get(), "ok"))
+        {
+            reload = true;
             return;
+        }
     }
 }
 
@@ -465,7 +472,10 @@ void options(bool &reload)
             auto saved = request("rc-save", reload, arguments("text", rc));
             show_result(saved);
             if (saved && flag(saved.get(), "ok"))
+            {
+                reload = true;
                 return;
+            }
         }
         else if (choice == 2)
         {
@@ -704,5 +714,9 @@ void hns_desktop_native_start()
         progress.advance_progress();
     }
     future.get();
+    // Cloud startup may have replaced init.txt after the initial RC read.
+    // Apply it before choosing a character or generating its first level.
+    read_init_file(false);
+    Options.fixup_options();
 }
 #endif

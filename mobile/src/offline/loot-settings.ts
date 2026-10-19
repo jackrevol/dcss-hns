@@ -12,7 +12,7 @@ export const LOOT_FIELDS = [
   { key: 'hns_gold_amount', label: '골드 묶음 수량', unit: '배', scale: 100, min: 1, max: 1000, value: 100,
     help: '생성되는 골드 한 묶음의 양입니다. 최소 1개를 보장합니다.' },
   { key: 'hns_consumable_amount', label: '소모품 묶음 수량', unit: '배', scale: 100, min: 1, max: 1000, value: 100,
-    help: '물약·스크롤·탄약 한 묶음의 개수입니다. 최소 1개를 보장합니다.' },
+    help: '새 바닥의 물약·스크롤·탄약 묶음 개수입니다. 금고·특수방도 포함하며 최소 1개를 보장합니다. 기존 아이템·몬스터 소지품·상점은 유지합니다.' },
 ] as const
 
 export type LootKey = typeof LOOT_FIELDS[number]['key']

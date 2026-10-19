@@ -3,12 +3,14 @@
 #include "AppHdr.h"
 
 #include "artefact.h"
+#include "dungeon.h"
 #include "env.h"
 #include "game-options.h"
 #include "hns-loot.h"
 #include "items.h"
 #include "item-prop-enum.h"
 #include "makeitem.h"
+#include "mapdef.h"
 #include "options.h"
 #include "test_player_fixture.h"
 #include "unwind.h"
@@ -76,5 +78,31 @@ TEST_CASE_METHOD(MockPlayerYouTestsFixture,
         REQUIRE(env.item[index].quantity >= multiplier);
         REQUIRE(env.item[index].quantity % multiplier == 0);
         destroy_item(index);
+    }
+}
+
+TEST_CASE_METHOD(MockPlayerYouTestsFixture,
+                 "Vault floor consumables scale after explicit quantities while shop specs do not", "[hns]")
+{
+    unwind_var<int> consumable(Options.hns_consumable_amount, 500);
+    const pair<object_class_type, int> samples[] = {
+        {OBJ_POTIONS, POT_CURING}, {OBJ_SCROLLS, SCR_IDENTIFY}, {OBJ_MISSILES, MI_JAVELIN}
+    };
+    int quantity = 2;
+    for (const auto &sample : samples)
+    {
+        item_spec spec;
+        spec.base_type = sample.first;
+        spec.sub_type = sample.second;
+        spec.qty = quantity;
+        const int floor = dgn_place_item(spec, coord_def(20, 20), 5);
+        REQUIRE(floor != NON_ITEM);
+        REQUIRE(env.item[floor].quantity == quantity * 5);
+        destroy_item(floor);
+        const int shop = dgn_place_item(spec, coord_def(), 5);
+        REQUIRE(shop != NON_ITEM);
+        REQUIRE(env.item[shop].quantity == quantity);
+        destroy_item(shop);
+        ++quantity;
     }
 }

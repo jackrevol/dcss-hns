@@ -24,9 +24,11 @@ if (existsSync(fixture)) {
   step('activate', '[F6] Import save backup'); step('activate', 'Enter full path'); step('fill', fixture, 0); step('enter'); step('escape'); step('expect', 'HnsSmoke')
 }
 step('activate', '[F2] Item drops'); step('activate', 'Edit drop settings')
-step('fill', '4.5', 0); step('snapshot', resolve(output, 'drops.png'))
+step('fill', '4.5', 0); step('fill', '5', 6); step('snapshot', resolve(output, 'drops.png'))
 step('activate', '[Enter] Save / continue'); step('escape')
-step('expect', '[F3] Options file'); step('activate', '[F3] Options file')
+step('expect', '[F3] Options file')
+steps.push({ kind: 'expect-settings', values: { hns_floor_item_rate: 450, hns_consumable_amount: 500 } })
+step('activate', '[F3] Options file')
 step('expect', 'hns_floor_item_rate = 450'); step('snapshot', resolve(output, 'options.png'))
 step('activate', 'Discard changes')
 step('activate', '[F5] Export save backup'); step('activate', 'Enter full path'); step('fill', exported, 0); step('enter'); step('escape')
@@ -49,6 +51,7 @@ step('snapshot', resolve(output, 'cloud-download.png')); step('activate', 'Cance
 step('activate', 'Cloud -> Local'); step('activate', 'Download cloud saves')
 step('expect', 'Cloud -> Local complete'); step('escape'); step('activate', 'Back to main menu')
 if (existsSync(fixture)) step('absent', 'HnsSmoke')
+steps.push({ kind: 'expect-settings', values: { hns_floor_item_rate: 125 } })
 step('activate', '[F5] Export save backup'); step('activate', 'Enter full path'); step('fill', downloaded, 0); step('enter'); step('escape')
 step('expect', '[F2] Item drops'); step('complete')
 

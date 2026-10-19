@@ -5318,6 +5318,10 @@ int dgn_place_item(const item_spec &spec,
 
         if (_apply_item_props(item, spec, useless_tries >= 10, false, level))
         {
+            // Shops use an origin coordinate; only newly placed floor loot
+            // gets the consumable multiplier, after explicit quantity specs.
+            if (in_bounds(where))
+                hns_scale_consumable_stack(item);
             dprf(DIAG_DNGN, "vault spec: placing %s at %d,%d",
                 env.item[item_made].name(DESC_INVENTORY, false, true).c_str(),
                 where.x, where.y);
@@ -5867,6 +5871,7 @@ static void _vault_grid_glyph(vault_placement &place, const coord_def& where,
         item_made = items(true, which_class, which_type, which_depth);
         if (item_made != NON_ITEM)
         {
+            hns_scale_consumable_stack(env.item[item_made]);
             env.item[item_made].pos = where;
             env.level_map_mask(where) |= MMT_NO_TRAP;
             dprf(DIAG_DNGN, "vault grid: placing %s at %d,%d",

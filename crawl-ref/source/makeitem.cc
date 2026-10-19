@@ -2232,15 +2232,12 @@ int items(bool allow_uniques,
         break;
     }
 
-    if (hns_loot && (item.base_type == OBJ_GOLD
-                    || item.base_type == OBJ_POTIONS
-                    || item.base_type == OBJ_SCROLLS
-                    || item.base_type == OBJ_MISSILES))
+    if (hns_loot)
     {
-        const int percent = item.base_type == OBJ_GOLD
-                            ? Options.hns_gold_amount
-                            : Options.hns_consumable_amount;
-        item.quantity = max(1, hns_scale_loot(item.quantity, percent, SHRT_MAX));
+        if (item.base_type == OBJ_GOLD)
+            item.quantity = max(1, hns_scale_loot(item.quantity, Options.hns_gold_amount, SHRT_MAX));
+        else
+            hns_scale_consumable_stack(item);
     }
 
     if (item_has_invalid_brand(item))

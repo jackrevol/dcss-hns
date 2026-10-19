@@ -128,6 +128,17 @@ static bool _hns_menu_test_event(wm_event *event)
         ready = contents.find(value) == string::npos;
     if (kind == "activate")
         ready = !!target;
+    if (kind == "expect-settings")
+    {
+        const auto expected = json_find_member(command, "values");
+        const pair<const char*, int> settings[] = {
+            {"hns_floor_item_rate", Options.hns_floor_item_rate},
+            {"hns_consumable_amount", Options.hns_consumable_amount}
+        };
+        for (const auto &setting : settings)
+            if (const auto wanted = json_find_member(expected, setting.first))
+                ready = ready && wanted->tag == JSON_NUMBER && wanted->number_ == setting.second;
+    }
     if (!ready)
     {
         if (SDL_GetTicks() > deadline)

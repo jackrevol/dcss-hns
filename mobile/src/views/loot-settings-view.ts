@@ -12,7 +12,7 @@ export async function openLootSettings(onSaved: (notice: string) => void, canEdi
   }, undefined, () => saving)
   const note = document.createElement('p')
   note.className = 'settings-footer'
-  note.textContent = '일반 바닥 아이템에만 적용하며, 이 기기의 HNS 오프라인 게임 전체에서 공유합니다. 저장 후 게임을 시작·재개하면 새로 생성되는 아이템부터 반영됩니다. 기존 아이템과 몬스터의 소지 장비는 유지됩니다.'
+  note.textContent = '이 기기의 HNS 오프라인 게임 전체에서 공유합니다. 소모품 묶음 수량은 금고·특수방을 포함한 새 바닥 아이템에 적용하며, 나머지 옵션은 일반 랜덤 바닥 아이템에 적용합니다. 저장 후 게임을 시작·재개하면 새로 생성되는 아이템부터 반영됩니다. 기존 아이템과 몬스터의 소지 장비는 유지됩니다.'
   body.appendChild(note)
   const form = document.createElement('form')
   const settings = parseLootSettings(rc)
