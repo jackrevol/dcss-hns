@@ -298,13 +298,14 @@ Android 뒤로 가기는 Escape 키입니다. 홈/앱 전환 시 안전한 입�
 초기화 시에는 없어지므로 Backup으로 `.pzsave`를 보관하세요.
 백업 내보내기는 Android 파일 저장창, 복원은 파일 선택창을 사용합니다.
 
-GitHub Actions의 **Mobile Android** 워크플로는 UI 검사, 현재 HNS 엔진
-컴파일, 브라우저 통합 테스트, APK 빌드를 실행하고 APK와 전체 소스 스냅샷을
-artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lua·폰트
+GitHub Actions의 **[DCSS HNS](../.github/workflows/ci.yml)**는 UI 검사, 현재 HNS 엔진
+컴파일, 브라우저 통합 테스트, APK·PC 빌드와 릴리즈를 한 실행에서 처리합니다.
+WASM·웹 결과는 한 번만 빌드·검증하고, Android와 PC 패키징을 병렬로 시작합니다.
+PC에는 버전 정보와 실제 테스트 세이브만 전달하며 WASM을 전달하지 않습니다.
+APK와 전체 소스 스냅샷도 artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lua·폰트
 소스를 포함한 배포용 소스 압축 파일을 생성합니다.
 
-**[Platform Release](../.github/workflows/release.yml)**는 `master`에 push한
-커밋의 **Build** 성공 후 이 워크플로를 재사용하고, 공유 저장 서비스와 같은 소스
+통합 워크플로는 공유 저장 서비스와 같은 소스
 커밋에서 빌드한 원본 SDL 엔진을 Windows x64, Linux x64,
 macOS Intel/Apple Silicon 앱으로 패키징합니다.
 Android 오프라인 플레이와 PC 빌드·저장 기능·게임 데이터 검증이 성공하면
@@ -315,6 +316,10 @@ Android 오프라인 플레이와 PC 빌드·저장 기능·게임 데이터 검
 해당 태그에 첨부 파일을 추가하며, 재실행하면 같은 이름의 파일을 교체합니다.
 기존 Android 전용 첫 릴리즈 태그에는 데스크톱 빌드 스크립트가 없어
 이 자동화를 사용하려면 새 스크립트가 포함된 태그가 필요합니다.
+`publish`를 해제하면 게시 없이 검증하며, `extended`를 선택하면 원본의
+전체 컴파일·헤더 조합과 레거시 플랫폼 검사도 수행합니다. 일반 실행은
+실제 배포 플랫폼 중심으로 검사하고, 문서만 변경하면 패키지 빌드를 생략합니다.
+SDK·npm·Gradle·컴파일 캐시를 재사용하며 PR의 오래된 실행은 자동 취소합니다.
 
 ## 라이선스
 

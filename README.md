@@ -1,4 +1,4 @@
-[![Build Status](https://github.com/jackrevol/dcss-hns/workflows/Build/badge.svg)](https://github.com/jackrevol/dcss-hns/actions/)
+[![DCSS HNS](https://github.com/jackrevol/dcss-hns/actions/workflows/ci.yml/badge.svg)](https://github.com/jackrevol/dcss-hns/actions/workflows/ci.yml)
 
 # DCSS HNS
 
@@ -12,9 +12,9 @@ UI를 적용한 Android 앱으로 인터넷 없이 플레이할 수 있습니다
 
 ## 플랫폼별 릴리즈 파일
 
-`master`에 push한 커밋의 **Build**가 성공하면
-**[Platform Release](.github/workflows/release.yml)**가 해당 커밋의 엔진과 UI를
-빌드합니다. Android 오프라인 플레이와 PC 앱의 빌드·저장 기능·게임 데이터 검증이
+**[DCSS HNS](.github/workflows/ci.yml)** 하나에서 검사·빌드·릴리즈를 처리합니다.
+`master`에 push한 커밋으로 엔진과 UI를 한 번 빌드하고, 검증한 결과를
+Android와 PC 패키징에 공유합니다. Android 오프라인 플레이와 PC 앱의 빌드·저장 기능·게임 데이터 검증이
 성공하면 `v0.35-a0-hns.<순번>` 태그로 새 릴리즈를 생성하고 아래 파일을
 함께 게시합니다. 실패한 빌드나 PR·다른 브랜치의 빌드는 자동 게시하지 않습니다.
 
@@ -42,11 +42,28 @@ F6 복원 · F7 클라우드** 메뉴를 통합했습니다. 모든 설정과 �
 PC는 로그인 후 시작할 때 최신 세이브를 자동으로 비교하고, 플레이 중과 종료 시
 클라우드에 저장합니다. 수동 복사는 F7의 **Local -> Cloud / Cloud -> Local**에서
 선택합니다. 이전 진행은 복구 사본으로 보관하고, 계정·복구 기능은 하위 메뉴에 모았습니다.
-Actions의 **Platform Release → Run workflow**에서 `tag`를 비워 두면 선택한
+Actions의 **DCSS HNS → Run workflow**에서 `tag`를 비워 두면 선택한
 브랜치의 커밋을 수동으로 릴리즈할 수 있습니다. 기존 태그를 지정하면 해당
 커밋을 빌드하여 릴리즈를 생성하거나 기존 첨부 파일을 교체합니다. 릴리즈를
 직접 게시해도 해당 태그에 파일을 자동 첨부합니다. 대상 커밋에는 데스크톱 앱과
 릴리즈 빌드 스크립트가 포함되어 있어야 합니다.
+
+일반 실행은 UI·클라우드 검사, 실제 WASM 플레이, Android APK, PC 4종,
+GCC/Clang 엔진 검사, MSVC 2종과 C++ 단위 테스트를 수행합니다.
+Android와 PC 패키징은 병렬로 실행하며 릴리즈 단계에서 다시 빌드하지 않습니다.
+PC에는 WASM 전체 대신 버전 정보와 실제 테스트 세이브만 전달합니다.
+SDK·npm·Gradle·컴파일 캐시를 재사용하고, PR의 이전 실행은 취소합니다.
+
+| 실행 | 동작 |
+| --- | --- |
+| master 코드 변경 | 일반 검사·전체 앱 빌드 후 릴리즈 게시 |
+| PR | 같은 검사·앱 빌드, 게시 생략 |
+| 문서만 변경 | 코드·UI·클라우드 검사만 실행 |
+| 수동 `publish` 해제 | 게시 없이 검사·앱 빌드 |
+| 수동 `extended` 선택 | 전체 컴파일·헤더 조합, 범용 macOS, MinGW, 레거시 Android, 웹 서버·문서 검사도 실행 |
+
+master·수동 릴리즈는 버전 순번 충돌을 막기 위해 순서대로 실행합니다.
+최종 **전체 결과**에서 실패·취소와 의도한 생략을 구분하여 확인할 수 있습니다.
 
 ## Android 다운로드 및 실행
 
@@ -108,7 +125,7 @@ PC에서는 원본 시작 메뉴의 **F2 → 아이템 드랍 설정**으로 엽
 
 - [HNS 규칙 및 네이티브 빌드](crawl-ref/docs/hns.md): `init.txt` 옵션과 부활 규칙.
 - [모바일 개발 및 Android 빌드](mobile/README.md): Emscripten 엔진, UI, APK 빌드.
-- [Mobile Android 자동 빌드](.github/workflows/mobile.yml): 타입 검사·테스트,
+- [통합 빌드·릴리즈](.github/workflows/ci.yml): 타입 검사·테스트,
   엔진 컴파일, 실제 오프라인 플레이 검증, APK와 전체 소스 패키징.
 - [가져온 소스 버전 및 수정 범위](mobile/UPSTREAM.md),
   [저작권·출처 안내](mobile/ATTRIBUTION.md).
