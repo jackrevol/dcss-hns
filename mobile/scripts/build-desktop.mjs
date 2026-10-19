@@ -55,6 +55,10 @@ for(const output of outputs) {
   console.log('Desktop:',output)
   const archive = resolve(dirname(output), `DCSS-HNS-${release.version}-${platformName}-${arch}.${platform === 'linux' ? 'tar.gz' : 'zip'}`)
   if (platform === 'darwin') {
+    // extraResource 복사 시 비 Mach-O 파일의 서명 xattr가 사라지므로 최종 위치에서 서명합니다.
+    const engine = resolve(output, 'DCSS HNS.app/Contents/Resources/native/DCSS HNS.app')
+    execFileSync('codesign', ['--force', '--deep', '--sign', '-', engine], { stdio: 'inherit' })
+    execFileSync('codesign', ['--verify', '--deep', '--strict', engine], { stdio: 'inherit' })
     execFileSync('ditto',['-c','-k','--sequesterRsrc','--keepParent',resolve(output,'DCSS HNS.app'),archive])
   } else if (platform === 'win32') {
     execFileSync('python3', ['-c',

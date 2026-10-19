@@ -43,7 +43,7 @@ if (platform === 'win32') {
   writeFileSync(plist, readFileSync(plist, 'utf8')
     .replaceAll('Dungeon Crawl Stone Soup - Tiles', 'DCSS HNS')
     .replaceAll('Dungeon Crawl Stone Soup', 'DCSS HNS')
-    .replace('net.sourceforge.crawl-ref', 'io.github.jackrevol.dcsshns.desktop'), 'utf8')
+    .replace('net.sourceforge.crawl-ref', 'io.github.jackrevol.dcsshns.desktop.engine'), 'utf8')
   data = resolve(app, 'Contents/Resources')
   fonts = resolve(app, 'Contents/MacOS/contrib/fonts')
 } else {

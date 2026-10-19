@@ -21,6 +21,7 @@
     "build:native": "node scripts/build-native-engine.mjs",
     "test:desktop": "node scripts/test-desktop.mjs",
     "test:desktop-menu": "node scripts/test-desktop-menu.mjs",
+    "test:desktop-relaunch": "node scripts/test-desktop-relaunch.mjs",
     "test:bundled-web": "node scripts/test-bundled-web.mjs"
   },
   "devDependencies": {

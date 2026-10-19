@@ -21,6 +21,9 @@
 #if defined(UNIX) || defined(TARGET_COMPILER_MINGW)
 # include <unistd.h>
 #endif
+#if defined(TARGET_OS_MACOSX) && defined(USE_TILE_LOCAL)
+# include <mach-o/dyld.h>
+#endif
 
 #ifndef TARGET_OS_WINDOWS
 # include <langinfo.h>
@@ -240,6 +243,44 @@ __attribute__((externally_visible))
 #endif
 int main(int argc, char *argv[])
 {
+#if defined(TARGET_OS_MACOSX) && defined(USE_TILE_LOCAL)
+    // Dock/Finder may reopen the embedded SDL app directly. Always start the
+    // save service first so menus, cloud saves and the profile stay connected.
+    // Read-only engine commands (-version, -save-version, etc.) remain direct.
+    if (argc == 1 && !getenv("HNS_DESKTOP_MANAGE"))
+    {
+        uint32_t size = 0;
+        _NSGetExecutablePath(nullptr, &size);
+        vector<char> path(size);
+        if (!_NSGetExecutablePath(path.data(), &size))
+        {
+            const string executable(path.data());
+            const string marker = "/Contents/Resources/native/DCSS HNS.app/Contents/MacOS/";
+            const auto offset = executable.rfind(marker);
+            if (offset != string::npos)
+            {
+                const string application = executable.substr(0, offset);
+                if (file_exists(application + "/Contents/Resources/app.asar"))
+                {
+                    vector<string> args = {"open", application};
+                    for (const char *name : {"HNS_DESKTOP_DATA", "HNS_DESKTOP_UI_TEST"})
+                        if (const char *value = getenv(name))
+                        {
+                            args.push_back("--env");
+                            args.push_back(string(name) + "=" + value);
+                        }
+                    vector<char*> pointers;
+                    for (auto &arg : args)
+                        pointers.push_back(&arg[0]);
+                    pointers.push_back(nullptr);
+                    execv("/usr/bin/open", pointers.data());
+                    fprintf(stderr, "Could not reopen DCSS HNS: %s\n", strerror(errno));
+                    return 1;
+                }
+            }
+        }
+    }
+#endif
 #ifdef DGAMELAUNCH
     // avoid commas instead of dots, etc, on CDO
     setlocale(LC_CTYPE, "");
