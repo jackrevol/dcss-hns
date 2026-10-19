@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeF
 import { resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { releaseVersion } from './release-version.mjs'
+import { sourceCommit } from './native-bundle.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const source = resolve(root, '../crawl-ref/source')
@@ -62,6 +63,7 @@ cpSync(resolve(root, '../crawl-ref/CREDITS.txt'), resolve(output, 'CREDITS.txt')
 writeFileSync(resolve(output, 'desktop.json'), JSON.stringify({
   client: 'sdl-tiles', platform, arch,
   version: release.version,
+  source: sourceCommit(root),
   binary: binary.slice(output.length + 1), data: data.slice(output.length + 1) || '.',
   fonts: (fonts || resolve(data, 'dat/tiles')).slice(output.length + 1),
 }, null, 2) + '\n', 'utf8')

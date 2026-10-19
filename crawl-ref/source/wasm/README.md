@@ -2,8 +2,11 @@
 
 The integrated build is documented in `../../../mobile/README.md`;
 `mobile/scripts/build-engine.sh` builds the current HNS rules, not a vanilla
-engine download. The portable data stamp replaces the original macOS-only stat
-command. Import revisions are recorded in `../../../mobile/UPSTREAM.md`.
+engine download. 데이터 식별자는 배포하는 dat/docs의 경로·내용에서 계산하며
+체크아웃 시각과 무관합니다. `files.o`만 이 컴파일 옵션을 사용하고,
+내용이 바뀌면 해당 객체와 최종 링크를 갱신합니다. prewarm 식별자는 WASM
+해시도 포함해 엔진 변경 시 파생 캐시를 갱신합니다.
+Import revisions are recorded in `../../../mobile/UPSTREAM.md`.
 
 This is a fork of Dungeon Crawl Stone Soup (GPL) that compiles the **webtiles**
 game binary to WebAssembly so [PocketZot](https://pocketzot.app) can run DCSS fully

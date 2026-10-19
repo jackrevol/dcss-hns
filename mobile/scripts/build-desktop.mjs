@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto'
 import { packager } from '@electron/packager'
 import { build } from 'esbuild'
 import { releaseVersion } from './release-version.mjs'
+import { readNativeBundle, sourceCommit } from './native-bundle.mjs'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dist = resolve(root, 'dist'), input = resolve(root, 'build/desktop-source')
 const platform = process.env.HNS_DESKTOP_PLATFORM || process.platform
@@ -14,9 +15,12 @@ const platformName = { darwin: 'mac', win32: 'windows', linux: 'linux' }[platfor
 const release = releaseVersion()
 if (!platformName || !['x64', 'arm64'].includes(arch)) throw new Error('Unsupported desktop platform or architecture')
 execFileSync(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), 'build', '--config', 'vite.desktop.config.ts'], { cwd: root, stdio: 'inherit' })
-await import('./build-sdl.mjs')
+const prebuilt = process.argv.includes('--prebuilt-native')
+if (!prebuilt) await import('./build-sdl.mjs')
 const native = resolve(root, 'build/sdl/native')
-const nativeManifest = JSON.parse(readFileSync(resolve(native, 'desktop.json'), 'utf8'))
+const source = prebuilt ? sourceCommit(root) : undefined
+if (prebuilt && !source) throw new Error('Cannot verify a prebuilt native engine without its source commit')
+const nativeManifest = readNativeBundle(native, { platform, arch, version: release.version, ...(prebuilt ? { source } : {}) })
 const version = existsSync(resolve(dist, 'offline/version.json'))
   ? JSON.parse(readFileSync(resolve(dist, 'offline/version.json'), 'utf8'))
   : { hns: true, build: release.build || createHash('sha256').update(readFileSync(resolve(native, nativeManifest.binary))).digest('hex').slice(0, 12),
@@ -34,7 +38,7 @@ rmSync(resolve(input, 'web/offline'), { recursive: true, force: true })
 mkdirSync(resolve(input, 'web/offline'), { recursive: true })
 writeFileSync(resolve(input, 'web/offline/version.json'), JSON.stringify(version), 'utf8')
 mkdirSync(resolve(input, 'web/desktop-assets'), { recursive: true })
-const manifest = JSON.parse(readFileSync(resolve(native, 'desktop.json'), 'utf8'))
+const manifest = nativeManifest
 cpSync(resolve(native, manifest.data, 'dat/tiles/stone_soup_icon-512x512.png'), resolve(input, 'web/desktop-assets/icon.png'))
 rmSync(resolve(input,'web/sw.js'),{force:true})
 for (const name of ['LICENSE','ATTRIBUTION.md']) cpSync(resolve(root,name),resolve(input,'web',name+'.txt'))

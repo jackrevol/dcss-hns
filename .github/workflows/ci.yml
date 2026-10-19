@@ -43,6 +43,8 @@ jobs:
       extended: ${{ steps.plan.outputs.extended }}
       linux: ${{ steps.plan.outputs.linux }}
       msvc: ${{ steps.plan.outputs.msvc }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      parallel: ${{ steps.plan.outputs.parallel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +58,8 @@ jobs:
           curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz | tar -xz -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color -shellcheck=
           node --test .github/scripts/ci-*.test.mjs
+          python3 -m unittest discover -s crawl-ref/source/wasm -p "test_*.py"
+          node --test mobile/scripts/native-bundle.test.mjs
       - name: 변경 범위·버전·정확한 빌드 커밋 결정
         id: plan
         run: node .github/scripts/ci-plan.mjs
@@ -103,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: ${{ needs.plan.outputs.sha }}
           submodules: recursive
       - uses: actions/setup-node@v4
@@ -224,35 +228,19 @@ jobs:
           compression-level: 0
           retention-days: 7
 
-  desktop:
-    name: Desktop ${{ matrix.platform }} ${{ matrix.arch }}
+  native:
+    name: SDL compile ${{ matrix.platform }} ${{ matrix.arch }}
     needs:
       - plan
-      - client
+      - checks
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.parallel == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
       HNS_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: windows-2025
-            platform: win32
-            arch: x64
-            executable: DCSS HNS.exe
-          - os: ubuntu-24.04
-            platform: linux
-            arch: x64
-            executable: DCSS HNS
-          - os: macos-15-intel
-            platform: darwin
-            arch: x64
-            executable: DCSS HNS.app/Contents/MacOS/DCSS HNS
-          - os: macos-15
-            platform: darwin
-            arch: arm64
-            executable: DCSS HNS.app/Contents/MacOS/DCSS HNS
+      matrix: ${{ fromJSON(needs.plan.outputs.desktop) }}
     defaults:
       run:
         working-directory: mobile
@@ -262,17 +250,10 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
           submodules: recursive
+          fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
-      - uses: actions/download-artifact@v4
-        with:
-          name: dcss-hns-native-input
-          path: mobile
-      - name: Install desktop dependencies
-        run: npm ci
       - uses: actions/setup-python@v5
         if: runner.os != 'Windows'
         with:
@@ -299,20 +280,116 @@ jobs:
           key: hns-desktop-${{ matrix.platform }}-${{ matrix.arch }}
           max-size: 1G
           create-symlink: true
+      - name: Compile and verify original SDL engine (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        env:
+          HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
+          HNS_DESKTOP_ARCH: ${{ matrix.arch }}
+        run: node scripts/build-sdl.mjs
+      - name: Compile and verify original SDL engine
+        if: runner.os != 'Windows'
+        env:
+          HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
+          HNS_DESKTOP_ARCH: ${{ matrix.arch }}
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: node scripts/build-sdl.mjs
+      - name: Archive native files with executable modes and symlinks
+        run: tar -czf "build/native-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C build/sdl native
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hns-sdl-${{ matrix.platform }}-${{ matrix.arch }}
+          path: mobile/build/native-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  desktop:
+    name: Desktop ${{ matrix.platform }} ${{ matrix.arch }}
+    needs:
+      - plan
+      - client
+      - native
+    if: ${{ !cancelled() && needs.plan.outputs.build == 'true' && needs.client.result == 'success' && (needs.plan.outputs.parallel != 'true' || needs.native.result == 'success') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      HNS_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.desktop) }}
+    defaults:
+      run:
+        working-directory: mobile
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 1
+          submodules: ${{ needs.plan.outputs.parallel != 'true' && 'recursive' || 'false' }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: hns-sdl-${{ matrix.platform }}-${{ matrix.arch }}
+          path: mobile/build/native-input
+        if: needs.plan.outputs.parallel == 'true'
+      - name: Restore the compiled SDL engine
+        run: |
+          mkdir -p build/sdl
+          tar -xzf "build/native-input/native-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C build/sdl
+        if: needs.plan.outputs.parallel == 'true'
+      - uses: actions/download-artifact@v4
+        with:
+          name: dcss-hns-native-input
+          path: mobile
+      - name: Install desktop dependencies
+        run: npm ci
+      - uses: actions/setup-python@v5
+        if: needs.plan.outputs.parallel != 'true' && (runner.os != 'Windows')
+        with:
+          python-version: '3.12'
+        name: 'Legacy tag: Python'
+      - name: 'Legacy tag: Install native engine build dependencies'
+        if: needs.plan.outputs.parallel != 'true' && (runner.os != 'Windows')
+        run: python -m pip install pyyaml
+      - name: 'Legacy tag: Install Linux SDL and packaging dependencies'
+        if: needs.plan.outputs.parallel != 'true' && (runner.os == 'Linux')
+        run: |
+          python ../.github/workflows/deps.py --build-opts TILES=1 --appimage
+          echo 'LINUXDEPLOY=/tmp/linuxdeploy-x86_64.AppImage' >> "$GITHUB_ENV"
+      - name: 'Legacy tag: Cache native compilation'
+        if: needs.plan.outputs.parallel != 'true' && (runner.os != 'Windows')
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: hns-desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          max-size: 1G
+          create-symlink: true
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          update: ${{ needs.plan.outputs.parallel != 'true' }}
+          install: ${{ needs.plan.outputs.parallel == 'true' && 'mingw-w64-x86_64-python' || 'base-devel zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-python-yaml mingw-w64-x86_64-pkgconf' }}
       - name: Package Windows client with original SDL engine
         if: runner.os == 'Windows'
         shell: msys2 {0}
         env:
           HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
           HNS_DESKTOP_ARCH: ${{ matrix.arch }}
-        run: node scripts/build-desktop.mjs
+        run: node scripts/build-desktop.mjs ${{ needs.plan.outputs.parallel == 'true' && '--prebuilt-native' || '' }}
       - name: Package desktop app and archive
         if: runner.os != 'Windows'
         env:
           HNS_DESKTOP_PLATFORM: ${{ matrix.platform }}
           HNS_DESKTOP_ARCH: ${{ matrix.arch }}
           APPIMAGE_EXTRACT_AND_RUN: '1'
-        run: node scripts/build-desktop.mjs
+        run: node scripts/build-desktop.mjs ${{ needs.plan.outputs.parallel == 'true' && '--prebuilt-native' || '' }}
       - name: Install Linux runtime dependencies
         if: runner.os == 'Linux'
         run: npx playwright install-deps chromium
@@ -800,6 +877,7 @@ jobs:
       - checks
       - client
       - android
+      - native
       - desktop
       - engine
       - msvc

@@ -4,6 +4,13 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chooseRelease } from '../../mobile/scripts/release-version.mjs'
 
+export const desktopMatrix = { include: [
+  { os: 'windows-2025', platform: 'win32', arch: 'x64', executable: 'DCSS HNS.exe' },
+  { os: 'ubuntu-24.04', platform: 'linux', arch: 'x64', executable: 'DCSS HNS' },
+  { os: 'macos-15-intel', platform: 'darwin', arch: 'x64', executable: 'DCSS HNS.app/Contents/MacOS/DCSS HNS' },
+  { os: 'macos-15', platform: 'darwin', arch: 'arm64', executable: 'DCSS HNS.app/Contents/MacOS/DCSS HNS' },
+] }
+
 // 일반 실행은 실제 배포 대상과 두 컴파일러를 검사합니다.
 // 원본의 전체 조합은 수동 확장 검사에서 그대로 사용할 수 있습니다.
 export function linuxMatrix(extended) {
@@ -29,14 +36,14 @@ export function linuxMatrix(extended) {
   }
 }
 
-export function planRun({ eventName, ref, inputs = {}, files = [] }) {
+export function planRun({ eventName, ref, inputs = {}, files = [], parallel = true }) {
   const extended = eventName === 'workflow_dispatch' && inputs.extended === true
   const build = !['push', 'pull_request'].includes(eventName)
     || !files.length || files.some(path => !(/\.md$/i.test(path) || path.startsWith('crawl-ref/docs/')))
   const publish = build && (eventName === 'release'
     || eventName === 'push' && ref === 'refs/heads/master'
     || eventName === 'workflow_dispatch' && inputs.publish === true)
-  return { build, publish, extended, linux: linuxMatrix(extended),
+  return { build, publish, extended, parallel, desktop: desktopMatrix, linux: linuxMatrix(extended),
     msvc: extended ? { build_type: ['Debug Console', 'Debug Tiles', 'Release Console', 'Release Tiles'], build_arch: ['x64', 'Win32'] }
       : { include: [{ build_type: 'Debug Tiles', build_arch: 'Win32' }, { build_type: 'Release Tiles', build_arch: 'x64' }] } }
 }
@@ -49,8 +56,14 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const base = event.pull_request?.base.sha || event.before
   const files = base && !/^0+$/.test(base)
     ? git(['diff', '--name-only', base, sha]).split('\n').filter(Boolean) : []
+  // 이전 태그의 스크립트는 컴파일과 패키징을 한 작업에서 실행합니다.
+  let parallel = false
+  try {
+    parallel = execFileSync('git', ['show', `${sha}:mobile/scripts/build-desktop.mjs`],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).includes('--prebuilt-native')
+  } catch { /* 데스크톱 빌드가 없는 오래된 소스는 기존 검사에서 안내합니다. */ }
   const plan = planRun({ eventName: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF,
-    inputs: { publish: event.inputs?.publish === 'true', extended: event.inputs?.extended === 'true' }, files })
+    inputs: { publish: event.inputs?.publish === 'true', extended: event.inputs?.extended === 'true' }, files, parallel })
   const lines = value => value.split('\n').filter(Boolean)
   const release = chooseRelease(lines(git(['tag', '--list'])), lines(git(['tag', '--points-at', sha])), requested)
   const outputs = { ...plan, sha, version: release.version, tag: release.tag }

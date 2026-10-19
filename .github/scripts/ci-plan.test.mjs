@@ -12,8 +12,12 @@ test('master의 코드 변경은 검증과 동일한 빌드 결과를 게시한�
   assert.equal(plan.build, true)
   assert.equal(plan.publish, true)
   assert.equal(plan.extended, false)
+  assert.equal(plan.parallel, true)
   assert.equal(plan.linux.include.length, 2)
   assert.equal(plan.msvc.include.length, 2)
+  assert.equal(plan.desktop.include.length, 4)
+  assert.deepEqual(plan.desktop.include.map(target => target.platform + '/' + target.arch),
+    ['win32/x64', 'linux/x64', 'darwin/x64', 'darwin/arm64'])
 })
 test('문서만 바꾸면 검사만 하고 APK·PC 빌드와 릴리즈는 생략한다', () => {
   const plan = planRun({ eventName: 'push', ref: 'refs/heads/master', files: ['README.md', 'crawl-ref/docs/changelog.txt'] })
@@ -69,5 +73,6 @@ test('수동 태그 재빌드는 워크플로 커밋 대신 지정 태그의 정
     assert.equal(values.version, '0.35-a0-hns.3')
     assert.equal(values.publish, 'true')
     assert.equal(values.extended, 'false')
+    assert.equal(values.parallel, 'false', '기존 태그의 스크립트에는 새 컴파일 분리를 강제하지 않는다')
   } finally { rmSync(temporary, { recursive: true, force: true }) }
 })

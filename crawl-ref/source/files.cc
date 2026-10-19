@@ -336,9 +336,9 @@ string change_file_extension(const string &filename, const string &ext)
 // trigger a full multi-second rebuild (measured ~13s: yyparse over all of
 // dat/des plus DB regeneration). The bundle is immutable for a given build,
 // so report a per-build constant for everything outside the writable /crawl
-// mount instead. POCKETZOT_DAT_STAMP is injected by wasm/Makefile.emscripten
-// from the newest real mtime in the dat tree, so editing game data still
-// invalidates caches; save files under /crawl keep their true mtimes.
+// mount instead. wasm/Makefile.emscripten에서 dat/docs의 경로·내용 해시를
+// POCKETZOT_DAT_STAMP로 주입합니다. 체크아웃 시각은 무시하고 데이터가
+// 변경되면 캐시를 갱신합니다. 저장 파일은 기존 수정 시각을 유지합니다.
 #ifndef POCKETZOT_DAT_STAMP
 #define POCKETZOT_DAT_STAMP 1
 #endif

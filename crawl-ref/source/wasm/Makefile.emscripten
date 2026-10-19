@@ -54,14 +54,9 @@ DEFINES := -DUSE_TILE -DUSE_TILE_WEB -DWIZARD -DASSERTS -DCLUA_BINDINGS \
     -DDGL_EXTENDED_LOGFILES \
     -DCURSES_INCLUDE_FILE='"wasm/fake-curses.h"'
 
-# Newest real mtime in the shipped data tree, baked into file_modtime()'s
-# per-build constant (files.cc): preloaded MEMFS files get fresh mtimes each
-# boot, which would invalidate the IDBFS-cached description DBs + des cache
-# on every launch (a full ~13s rebuild). A constant keeps them valid across
-# boots; deriving it from the real dat mtimes still invalidates the caches
-# whenever the shipped data actually changes.
+# 배포하는 dat/docs의 경로와 내용으로 식별자를 계산합니다. 체크아웃 시각은
+# 캐시에 영향을 주지 않으며, 런타임의 DB·맵 캐시는 데이터 변경 시 갱신합니다.
 DAT_STAMP := $(shell python3 wasm/dat-stamp.py)
-DEFINES += -DPOCKETZOT_DAT_STAMP=$(DAT_STAMP)
 
 INCLUDES := -Iutil -I. -Irltiles -isystem contrib/lua/src -isystem wasm/include
 
@@ -153,10 +148,19 @@ $(OUTDIR)/crawl.js: $(GAME_OBJS) $(LUA_OBJS) wasm/pre.js
 	@mkdir -p $(OUTDIR)
 	$(CXX) $(GAME_OBJS) $(LUA_OBJS) $(LDFLAGS) -o $@
 
-# Re-bake files.o when the dat stamp changes (make can't see -D changes).
+# 내용 변경은 같은 초 안에 일어나도 감지합니다. make -q는 식별자를 기록하지
+# 않으며, 컴파일 성공 후에만 prewarm에서 사용할 값을 저장합니다.
 STAMPFILE := $(OBJDIR)/dat-stamp
-$(shell mkdir -p $(OBJDIR); [ "$$(cat $(STAMPFILE) 2>/dev/null)" = "$(DAT_STAMP)" ] || echo $(DAT_STAMP) > $(STAMPFILE))
-$(OBJDIR)/files.o: $(STAMPFILE)
+ifneq ($(shell cat $(STAMPFILE) 2>/dev/null),$(DAT_STAMP))
+.PHONY: wasm-data-changed
+$(OBJDIR)/files.o $(OUTDIR)/crawl.js: wasm-data-changed
+endif
+# 데이터 식별자가 필요한 파일만 컴파일 옵션을 변경합니다.
+$(OBJDIR)/files.o: CXXFLAGS += -DPOCKETZOT_DAT_STAMP=$(DAT_STAMP)
+$(OBJDIR)/files.o: files.cc
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+	@printf '%s\n' '$(DAT_STAMP)' > $(STAMPFILE)
 
 $(OBJDIR)/%.o: %.cc
 	@mkdir -p $(dir $@)

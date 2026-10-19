@@ -119,6 +119,11 @@ linuxdeploy AppImage 경로를 지정합니다. Linux 게임 엔진은 추출한
 포함하므로 FUSE가 필요하지 않습니다. PC 빌드에는 WASM 엔진이 필요하지 않습니다.
 `HNS_DESKTOP_OUTPUT`으로 배포 결과 폴더를 지정하면 실행 중인 앱을 덮어쓰지 않고
 새 빌드를 검증할 수 있습니다. 기본값은 `build/desktop`입니다.
+CI에서는 `node scripts/build-sdl.mjs`로 먼저 컴파일하고, 압축·전달한 결과를
+`node scripts/build-desktop.mjs --prebuilt-native`로 재컴파일 없이 패키징합니다.
+이 옵션은 엔진의 커밋·버전·플랫폼·CPU가 현재 소스와 일치할 때만 허용합니다.
+네이티브 결과는 tar로 전달해 실행 권한과 심볼릭 링크를 보존합니다.
+새 옵션을 지원하지 않는 기존 태그는 CI에서 종전 빌드 경로로 처리합니다.
 릴리즈에서는 각 플랫폼의 호스트에서 패키징하고 저장 기능·게임 데이터를 검증합니다.
 macOS Apple Silicon 결과는 `build/desktop/DCSS-HNS-<version>-mac-arm64.zip`입니다.
 Windows x64는 `build/desktop/DCSS-HNS-<version>-windows-x64.zip`, Linux x64는
@@ -300,7 +305,8 @@ Android 뒤로 가기는 Escape 키입니다. 홈/앱 전환 시 안전한 입�
 
 GitHub Actions의 **[DCSS HNS](../.github/workflows/ci.yml)**는 UI 검사, 현재 HNS 엔진
 컴파일, 브라우저 통합 테스트, APK·PC 빌드와 릴리즈를 한 실행에서 처리합니다.
-WASM·웹 결과는 한 번만 빌드·검증하고, Android와 PC 패키징을 병렬로 시작합니다.
+WASM·웹 결과는 한 번만 빌드·검증합니다. PC 네이티브 컴파일은 WASM과
+동시에 시작하고, 완료 후 검증한 버전·세이브와 함께 패키징합니다.
 PC에는 버전 정보와 실제 테스트 세이브만 전달하며 WASM을 전달하지 않습니다.
 APK와 전체 소스 스냅샷도 artifact로 올립니다. `npm run package:source`는 현재 작업 트리와 Lua·폰트
 소스를 포함한 배포용 소스 압축 파일을 생성합니다.
@@ -320,6 +326,10 @@ Android 오프라인 플레이와 PC 빌드·저장 기능·게임 데이터 검
 전체 컴파일·헤더 조합과 레거시 플랫폼 검사도 수행합니다. 일반 실행은
 실제 배포 플랫폼 중심으로 검사하고, 문서만 변경하면 패키지 빌드를 생략합니다.
 SDK·npm·Gradle·컴파일 캐시를 재사용하며 PR의 오래된 실행은 자동 취소합니다.
+WASM의 데이터 식별자는 배포하는 dat/docs의 경로·내용으로 계산하고,
+`files.o`에만 컴파일 옵션으로 넣습니다. 파일 시각 변경은 무시하며 데이터 내용이
+바뀌면 해당 객체와 최종 링크를 갱신합니다. prewarm 식별자는 엔진 해시도 포함해
+엔진이 바뀌면 파생 캐시를 다시 넣습니다. 사용자 세이브의 수정 시각은 유지합니다.
 
 ## 라이선스
 
