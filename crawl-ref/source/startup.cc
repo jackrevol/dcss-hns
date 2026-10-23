@@ -713,8 +713,9 @@ public:
             m_root->add_child(title);
             auto menu = make_shared<Grid>();
             const char *labels[] = {"[F2] Item drops", "[F3] Options file", "[F4] Past games / morgues",
-                "[F5] Export save backup", "[F6] Import save backup", "[F7] Cloud saves"};
-            for (int i = 0; i < 6; ++i)
+                "[F5] Export save backup", "[F6] Import save backup", "[F7] Cloud saves",
+                "[F8] Death recovery"};
+            for (int i = 0; i < 7; ++i)
             {
                 auto button = make_shared<MenuButton>();
                 button->id = -2 - i;
@@ -902,10 +903,10 @@ void UIStartupMenu::on_show()
 #if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
         else if ((hns_native_enabled() || getenv("HNS_DESKTOP_MANAGE"))
             && (keyn == CK_F2 || keyn == CK_F3 || keyn == CK_F4
-                || keyn == CK_F5 || keyn == CK_F6 || keyn == CK_F7))
+                || keyn == CK_F5 || keyn == CK_F6 || keyn == CK_F7 || keyn == CK_F8))
         {
-            const int keys[] = {CK_F2, CK_F3, CK_F4, CK_F5, CK_F6, CK_F7};
-            for (int i = 0; i < 6; ++i)
+            const int keys[] = {CK_F2, CK_F3, CK_F4, CK_F5, CK_F6, CK_F7, CK_F8};
+            for (int i = 0; i < 7; ++i)
                 if (keyn == keys[i])
                     menu_item_activated(-2 - i);
             return true;
@@ -983,7 +984,7 @@ void UIStartupMenu::on_show()
 void UIStartupMenu::menu_item_activated(int id)
 {
 #if defined(USE_TILE_LOCAL) && !defined(__ANDROID__)
-    if (id <= -2 && id >= -7)
+    if (id <= -2 && id >= -8)
     {
         reload = hns_desktop_menu(-id - 2);
         done = reload;

@@ -225,6 +225,44 @@ int main(int argc, char **argv)
             assert(read(profile / "native/crawl/init.txt") == "new local");
         }
         std::cout << "PASS: login, automatic upload, background upload, push-only protection, directional replacement, compatibility rejection, CAS races, offline preservation, recovery archives, locks, logout and reopen\n";
+        {
+            const auto recovery_profile = temporary / "death-recovery";
+            const auto crawl = recovery_profile / "native/crawl";
+            atomic_write(crawl / "saves/recovery/Hero.cs", "valid checkpoint");
+            atomic_write(crawl / "saves/recovery/Hero.json",
+                Json({{"name", "Hero"}, {"when", now_ms()}, {"checkpoint", true}}).dump());
+            atomic_write(crawl / "init.txt", "keep options");
+            atomic_write(crawl / "saves/Other.cs", "valid other character");
+            atomic_write(crawl / "saves/logfile", "keep death history\n");
+            Backend backend(recovery_profile, "native-build", rpc);
+            backend.start([](const std::string &path) { return read(fs::u8path(path)).rfind("valid", 0) == 0; });
+            auto copies = backend.action("death-recoveries")["items"];
+            assert(copies.size() == 1 && copies[0]["name"] == "Hero" && copies[0]["available"] == true);
+            assert(backend.action("death-restore", {{"id", copies[0]["id"]}})["ok"] == true);
+            assert(read(crawl / "saves/Hero.cs") == "valid checkpoint");
+            assert(read(crawl / "saves/recovery/Hero.cs") == "valid checkpoint");
+            assert(read(crawl / "saves/Other.cs") == "valid other character");
+            assert(read(crawl / "init.txt") == "keep options");
+            assert(read(crawl / "saves/logfile") == "keep death history\n");
+            assert(backend.action("death-restore", {{"id", copies[0]["id"]}})["ok"] == false);
+            assert(backend.action("death-restore", {{"id", "checkpoint:../../outside"}})["ok"] == false);
+            atomic_write(recovery_profile / "native/archives/old.pzsave",
+                encode(snapshot({{"/crawl/saves/Old.cs", 1234, "valid old backup"}})));
+            atomic_write(recovery_profile / "native/archives/broken.pzsave", "corrupt pack");
+            atomic_write(crawl / "saves/recovery/Broken.json", "invalid json");
+            copies = backend.action("death-recoveries")["items"];
+            assert(copies.size() == 2);
+            for (const auto &copy : copies)
+                if (copy["name"] == "Old")
+                    assert(backend.action("death-restore", {{"id", copy["id"]}})["ok"] == true);
+            assert(read(crawl / "saves/Old.cs") == "valid old backup");
+            fs::remove(crawl / "saves/Hero.cs");
+            atomic_write(crawl / "saves/recovery/Hero.cs", "incompatible save");
+            assert(backend.action("death-restore", {{"id", copies[0]["id"]}})["ok"] == false);
+            assert(!fs::exists(crawl / "saves/Hero.cs"));
+            backend.finish();
+        }
+        std::cout << "PASS: per-character death recovery, old automatic backups, overwrite protection, compatibility and corrupt-copy isolation\n";
         fs::remove_all(temporary);
         return 0;
     }

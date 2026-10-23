@@ -134,6 +134,14 @@ export function buildOfflineLobbyView(
           <button type="button" id="offline-loot" class="offline-device-btn">설정</button>
         </div>
         <div class="offline-device-row">
+          <span class="offline-device-glyph" aria-hidden="true">${DAGGER_ICON}</span>
+          <span class="offline-device-lines">
+            <span class="offline-device-label">사망 캐릭터 복구</span>
+            <span class="offline-device-sub">부활을 건너뛴 캐릭터·이전 자동 백업</span>
+          </span>
+          <button type="button" id="offline-recovery" class="offline-device-btn">복구</button>
+        </div>
+        <div class="offline-device-row">
           <span class="offline-device-glyph" aria-hidden="true">${PENCIL_ICON}</span>
           <span class="offline-device-lines">
             <span class="offline-device-label">Options file</span>
@@ -940,6 +948,19 @@ export function buildOfflineLobbyView(
     const settings = openCloudSettings(refreshCloudFiles)
     void refreshCloudAccount().catch(() => {})
     void settings.finally(() => { cloudEditing = false })
+  })
+  view.querySelector('#offline-recovery')!.addEventListener('click', () => {
+    if (launched || downloading || cloudEditing) return
+    cloudEditing = true
+    void import('./death-recovery-view').then(({ openDeathRecovery }) => {
+      if (!view.isConnected) return
+      return openDeathRecovery(() => {
+        refreshCloudFiles()
+        setLobbyNotice(view, '캐릭터를 복구했습니다. Saved games에서 이어서 플레이하세요.', 'info')
+      })
+    }).catch(error => {
+      setLobbyNotice(view, errMsg(error), 'error')
+    }).finally(() => { cloudEditing = false })
   })
 
   // Seed "New game"'s home from the slot records — a localStorage read that

@@ -2,7 +2,10 @@
 #include <curl/curl.h>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <ctime>
 #include <future>
+#include <iomanip>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -246,6 +249,79 @@ struct Backend::Impl
         }
     }
     Snapshot local() const { return local_snapshot(crawl, build); }
+    struct Recovery
+    {
+        Json info;
+        File file;
+    };
+    std::vector<Recovery> death_recoveries()
+    {
+        std::map<std::string, Recovery> latest;
+        const std::regex save_path("/crawl/saves/(?:sprint/|descent/)?[^/]+\\.cs");
+        const auto add = [&](File file, const std::string &id, const std::string &name,
+                             double when, bool checkpoint) {
+            if (!std::regex_match(file.path, save_path))
+                return;
+            if (!std::isfinite(when) || when < 0 || when > now_ms() + 300000)
+                return;
+            auto found = latest.find(file.path);
+            if (found != latest.end() && found->second.info["when"].get<double>() >= when)
+                return;
+            const auto seconds = static_cast<time_t>(when / 1000);
+            std::ostringstream date;
+            date << std::put_time(std::localtime(&seconds), "%Y-%m-%d %H:%M");
+            Json info = {{"id", id}, {"name", name}, {"when", when}, {"checkpoint", checkpoint},
+                {"title", name + " · " + (checkpoint ? "Last level entry" : "Previous backup") + " · " + date.str()},
+                {"available", !fs::exists(crawl / fs::u8path(file.path.substr(7)))}};
+            const auto path = file.path;
+            latest[path] = {std::move(info), std::move(file)};
+        };
+        // Old clients already kept cloud recovery packs. Offer their newest
+        // character files too, without replacing settings or other characters.
+        for (const auto &entry : fs::directory_iterator(archives))
+            if (entry.path().extension() == ".pzsave")
+            {
+                try
+                {
+                    const auto saved = decode(read(entry.path()));
+                    for (const auto &item : saved.files)
+                        if (std::regex_match(item.first, save_path))
+                        {
+                            add(item.second, "archive:" + entry.path().stem().u8string() + ":" + item.first,
+                                fs::u8path(item.first).stem().u8string(), item.second.mtime, false);
+                        }
+                }
+                catch (const std::exception &) { /* One broken pack must not hide other copies. */ }
+            }
+        for (const auto *mode : {"", "sprint", "descent"})
+        {
+            const auto directory = crawl / "saves" / mode / "recovery";
+            if (!fs::is_directory(directory) || fs::is_symlink(directory))
+                continue;
+            for (const auto &entry : fs::directory_iterator(directory))
+                if (entry.path().extension() == ".json")
+                {
+                    try
+                    {
+                        const auto meta = Json::parse(read(entry.path(), 4096));
+                        auto source = entry.path(); source.replace_extension(".cs");
+                        const auto destination = directory.parent_path() / source.filename();
+                        const auto path = "/crawl/" + destination.lexically_relative(crawl).generic_u8string();
+                        const auto id = "checkpoint:" + source.lexically_relative(crawl).generic_u8string();
+                        add({path, meta.at("when").get<double>(), read(source)}, id,
+                            meta.at("name").get<std::string>(), meta.at("when").get<double>(), true);
+                    }
+                    catch (const std::exception &) { /* Incomplete copies are never offered. */ }
+                }
+        }
+        std::vector<Recovery> result;
+        for (auto &entry : latest)
+            result.push_back(std::move(entry.second));
+        std::sort(result.begin(), result.end(), [](const Recovery &a, const Recovery &b) {
+            return a.info["when"].get<double>() > b.info["when"].get<double>();
+        });
+        return result;
+    }
     void archive(const std::string &reason, const Snapshot &value)
     {
         if (value.files.empty())
@@ -489,6 +565,29 @@ Json Backend::action(const std::string &kind, const Json &values)
             return {{"ok", true}, {"path", path.generic_u8string()}};
         }
         const auto rc_path = impl->crawl / "init.txt";
+        if (kind == "death-recoveries" || kind == "death-restore")
+        {
+            const auto entries = impl->death_recoveries();
+            if (kind == "death-recoveries")
+            {
+                auto result = ok(); result["items"] = Json::array();
+                for (const auto &entry : entries) result["items"].push_back(entry.info);
+                return result;
+            }
+            const auto id = values.at("id").get<std::string>();
+            for (const auto &entry : entries)
+                if (entry.info["id"] == id)
+                {
+                    const auto destination = impl->crawl / fs::u8path(entry.file.path.substr(7));
+                    if (fs::exists(destination))
+                        throw std::runtime_error("A saved game with this name already exists. It will not be overwritten.");
+                    impl->require_compatible(snapshot({entry.file}));
+                    atomic_write(destination, entry.file.data);
+                    auto result = ok("Character recovered. Choose it in Saved games. The death record is kept.");
+                    result["reload"] = true; return result;
+                }
+            throw std::runtime_error("Death recovery copy not found. Refresh the list and try again.");
+        }
         const auto rc = [&]() { return fs::exists(rc_path) ? read(rc_path, 4 * 1024 * 1024) : Bytes(); };
         if (kind == "rc-get") { auto result = ok(); result["text"] = rc(); return result; }
         if (kind == "rc-save")

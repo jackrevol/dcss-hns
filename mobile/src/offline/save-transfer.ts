@@ -44,7 +44,8 @@ const IDBFS_DB_VERSION = 21
 const MAGIC = 'PZSAVE1\n'
 
 function isRegenerable(path: string): boolean {
-  return path.startsWith(`${MOUNT}/saves/db/`)
+  return path.includes('.hns-tmp-')
+    || path.startsWith(`${MOUNT}/saves/db/`)
     || path.startsWith(`${MOUNT}/saves/des/`)
     || path === `${MOUNT}/.pocketzot-prewarm`
 }
@@ -384,6 +385,31 @@ export async function writeOfflineFiles(files: SavedFile[]): Promise<number> {
   } finally {
     db.close()
   }
+}
+
+// Recovery adds one character; a concurrent restore or an existing game must
+// never be overwritten. IndexedDB's add checks this in the write transaction.
+export async function insertOfflineSave(file: SavedFile): Promise<void> {
+  validateSavedFiles([file])
+  if (!/^\/crawl\/saves\/(?:sprint\/|descent\/)?[^/]+\.cs$/.test(file.path))
+    throw new Error('복구할 캐릭터 경로가 올바르지 않습니다.')
+  const db = await openDb()
+  let collision = false
+  try {
+    const txn = db.transaction(STORE, 'readwrite')
+    const completed = txnDone(txn)
+    const store = txn.objectStore(STORE)
+    let parent = file.path
+    while ((parent = parent.slice(0, parent.lastIndexOf('/'))).length >= MOUNT.length)
+      store.put({ timestamp: new Date(), mode: 0o40775 }, parent)
+    const added = store.add({ timestamp: new Date(file.mtimeMs), mode: file.mode, contents: file.data }, file.path)
+    added.onerror = () => { collision = added.error?.name === 'ConstraintError' }
+    await completed
+  } catch (error) {
+    if (collision)
+      throw new Error('같은 이름의 저장 게임이 이미 있습니다. 기존 진행은 덮어쓰지 않습니다.')
+    throw error
+  } finally { db.close() }
 }
 
 // Validate the complete set before opening a write transaction. File/directory

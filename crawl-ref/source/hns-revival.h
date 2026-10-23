@@ -16,5 +16,9 @@ struct hns_revival
 bool hns_has_checkpoint(package &save);
 void hns_write_checkpoint(package &save);
 bool hns_restore_checkpoint(package &save);
+// Copy a complete, playable checkpoint without changing the source package.
+bool hns_copy_checkpoint(package &save, const std::string &filename);
+// False means the recovery write failed: keep the original save instead.
+bool hns_keep_death_recovery();
 void hns_checkpoint();
 void hns_offer_revival();

@@ -180,3 +180,17 @@ export function restoreCloudArchive(id: string): Promise<void> {
     } finally { await release() }
   })
 }
+
+export function restoreDeathRecovery(id: string): Promise<void> {
+  return serial(async () => {
+    if (starting || cloud.playing) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+    const release = await lease()
+    try {
+      if (starting || cloud.playing) throw new CloudBlockedError('게임을 먼저 종료하세요.')
+      const { restoreDeathRecoveryFile } = await import('../offline/death-recovery')
+      await restoreDeathRecoveryFile(id)
+      cloud.pending()
+      window.dispatchEvent(new Event('hns-cloud-restored'))
+    } finally { await release() }
+  })
+}

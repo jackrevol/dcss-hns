@@ -14,11 +14,13 @@ const profile = mkdtempSync(resolve(tmpdir(), 'hns-standalone-menu-'))
 const output = resolve(root, 'test-results/native-menu'); mkdirSync(output, { recursive: true })
 const fixture = process.env.HNS_DESKTOP_PACK || resolve(root, 'test-results/offline-backup.pzsave')
 const report = resolve(profile, 'report.json'), exported = resolve(profile, 'export.pzsave'), downloaded = resolve(profile, 'downloaded.pzsave')
+const recovered = resolve(profile, 'recovered.pzsave')
 const steps = []
 const step = (kind, value, index) => steps.push({ kind, value, index })
 step('expect', 'Loading complete, press any key to start.')
 step('enter')
-for (const label of ['[F2] Item drops', '[F3] Options file', '[F4] Past games / morgues', '[F5] Export save backup', '[F6] Import save backup', '[F7] Cloud saves']) step('expect', label)
+for (const label of ['[F2] Item drops', '[F3] Options file', '[F4] Past games / morgues', '[F5] Export save backup', '[F6] Import save backup', '[F7] Cloud saves', '[F8] Death recovery']) step('expect', label)
+step('activate', '[F8] Death recovery'); step('expect', 'No recovery copies'); step('escape')
 step('snapshot', resolve(output, 'main.png'))
 if (existsSync(fixture)) {
   step('activate', '[F6] Import save backup'); step('activate', 'Enter full path'); step('fill', fixture, 0); step('enter'); step('escape'); step('expect', 'HnsSmoke')
@@ -53,7 +55,16 @@ step('expect', 'Cloud -> Local complete'); step('escape'); step('activate', 'Bac
 if (existsSync(fixture)) step('absent', 'HnsSmoke')
 steps.push({ kind: 'expect-settings', values: { hns_floor_item_rate: 125 } })
 step('activate', '[F5] Export save backup'); step('activate', 'Enter full path'); step('fill', downloaded, 0); step('enter'); step('escape')
-step('expect', '[F2] Item drops'); step('complete')
+step('expect', '[F2] Item drops')
+if (existsSync(fixture)) {
+  step('activate', '[F8] Death recovery'); step('expect', 'HnsSmoke')
+  step('snapshot', resolve(output, 'recovery.png'))
+  step('activate', 'HnsSmoke'); step('expect', 'Restore this character only?')
+  step('activate', 'Recover character'); step('expect', 'Character recovered'); step('escape')
+  step('expect', 'HnsSmoke')
+  step('activate', '[F5] Export save backup'); step('activate', 'Enter full path'); step('fill', recovered, 0); step('enter'); step('escape')
+}
+step('complete')
 
 const plan = resolve(profile, 'plan.json'); writeFileSync(plan, JSON.stringify({ report, steps }), 'utf8')
 const codec = resolve(profile, 'codec.mjs')
@@ -113,6 +124,12 @@ try {
   assert.equal(state.reads, 8, 'Cancelled copies must not contact the cloud')
   const restored = unpackSave(readFileSync(downloaded)).files
   assert.match(new TextDecoder().decode(restored.find(file => file.path === '/crawl/init.txt').data), /hns_floor_item_rate = 125/)
+  if (existsSync(fixture)) {
+    const expected = unpackSave(readFileSync(fixture)).files.find(file => file.path === '/crawl/saves/HnsSmoke.cs')
+    const recoveredFiles = unpackSave(readFileSync(recovered)).files
+    assert.deepEqual(recoveredFiles.find(file => file.path === expected.path).data, expected.data)
+    assert.match(new TextDecoder().decode(recoveredFiles.find(file => file.path === '/crawl/init.txt').data), /hns_floor_item_rate = 125/)
+  }
   assert.equal(restored.some(file => file.path === '/crawl/cloud-only.txt'), true)
   assert.equal(restored.some(file => file.path.endsWith('HnsSmoke.cs')), false)
   assert.equal(unpackSave(state.uploads[1]).files.some(file => file.path === '/crawl/cloud-only.txt'), false)

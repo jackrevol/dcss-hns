@@ -4,9 +4,14 @@
 
 #include "files.h"
 #include "hns-revival.h"
+#include "options.h"
 #include "package.h"
+#include "player.h"
 #include "random.h"
+#include "state.h"
+#include "syscalls.h"
 #include "tags.h"
+#include "unwind.h"
 
 TEST_CASE("HNS revival restores a complete persistent checkpoint", "[hns]")
 {
@@ -73,6 +78,93 @@ TEST_CASE("HNS revival restores a complete persistent checkpoint", "[hns]")
     REQUIRE_FALSE(save->has_chunk("D:1"));
     REQUIRE_FALSE(save->has_chunk("hns-revival/D:1"));
     REQUIRE_FALSE(save->has_chunk("hns-revival/hns-revival/you"));
+}
+
+TEST_CASE("Death recovery keeps a playable checkpoint after the original save is deleted", "[hns]")
+{
+    const string source = "hns-death-source-test.cs";
+    const string target = "hns-death-recovery-test.cs";
+    REQUIRE_FALSE(file_exists(source));
+    REQUIRE_FALSE(file_exists(target));
+    {
+        package save(source.c_str(), true, true);
+        const auto put = [&](const string &name, const string &value)
+        {
+            chunk_writer writer(&save, name);
+            writer.write(value.data(), value.size());
+        };
+        put("you", "alive at entry");
+        put("chr", "character at entry");
+        put("D:1", "complete original level");
+        REQUIRE_FALSE(hns_copy_checkpoint(save, target));
+        REQUIRE_FALSE(file_exists(target));
+        hns_write_checkpoint(save);
+        put("you", "dead now");
+        put("D:2", "new level after checkpoint");
+        REQUIRE_THROWS(hns_copy_checkpoint(save, source));
+        REQUIRE_THROWS(hns_copy_checkpoint(save, "missing-hns-directory/recovery.cs"));
+        REQUIRE(hns_copy_checkpoint(save, target));
+        vector<char> bytes;
+        {
+            chunk_reader reader(&save, "you");
+            reader.read_all(bytes);
+        }
+        REQUIRE(string(bytes.begin(), bytes.end()) == "dead now");
+        save.unlink();
+    }
+    REQUIRE_FALSE(file_exists(source));
+    {
+        package recovered(target.c_str(), true);
+        REQUIRE(hns_has_checkpoint(recovered));
+        REQUIRE_FALSE(recovered.has_chunk("D:2"));
+        vector<char> bytes;
+        {
+            chunk_reader reader(&recovered, "you");
+            reader.read_all(bytes);
+        }
+        REQUIRE(string(bytes.begin(), bytes.end()) == "alive at entry");
+        REQUIRE(hns_restore_checkpoint(recovered));
+        REQUIRE(recovered.has_chunk("D:1"));
+        recovered.unlink();
+    }
+}
+
+TEST_CASE("A declined revival keeps a per-character recovery even after save deletion", "[hns]")
+{
+    const string filename = "hns-death-runtime-test.cs";
+    const string recovery = "recovery/" + filename;
+    const string metadata = "recovery/hns-death-runtime-test.json";
+    REQUIRE_FALSE(file_exists(filename));
+    REQUIRE_FALSE(file_exists(recovery));
+    {
+        package save(filename.c_str(), true, true);
+        for (const auto &name : {"you", "chr"})
+        {
+            chunk_writer writer(&save, name);
+            writer.write("alive", 5);
+        }
+        hns_write_checkpoint(save);
+        unwind_var<package*> current(you.save, &save);
+        unwind_var<string> character(you.your_name, "Recovery Test");
+        unwind_var<game_type> mode(crawl_state.type, GAME_TYPE_NORMAL);
+        unwind_bool test(crawl_state.test, false);
+        unwind_bool no_save(Options.no_save, false);
+        unwind_bool enabled(Options.hns_revival, false);
+        REQUIRE(hns_keep_death_recovery());
+        REQUIRE_FALSE(file_exists(recovery));
+        Options.hns_revival = true;
+        REQUIRE(hns_keep_death_recovery());
+        REQUIRE(file_exists(metadata));
+        save.unlink();
+    }
+    REQUIRE_FALSE(file_exists(filename));
+    {
+        package save(recovery.c_str(), true);
+        REQUIRE(hns_has_checkpoint(save));
+        REQUIRE(hns_restore_checkpoint(save));
+        save.unlink();
+    }
+    REQUIRE(unlink_u(metadata.c_str()) == 0);
 }
 
 TEST_CASE( "Test save version reading/writing works", "[single-file]" ) {

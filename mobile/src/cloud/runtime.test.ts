@@ -36,6 +36,14 @@ beforeEach(async () => {
 afterEach(() => { delete window.HnsDesktop; vi.unstubAllGlobals(); vi.useRealTimers() })
 
 describe('offline-first cloud lifecycle', () => {
+  it('blocks death recovery while a game owns the local files', async () => {
+    const { beginCloudGame, restoreDeathRecovery, endCloudGame } = await import('./runtime')
+    await beginCloudGame()
+    await expect(restoreDeathRecovery('copy')).rejects.toThrow(/종료/)
+    expect(mocks.replace).not.toHaveBeenCalled()
+    await endCloudGame(false)
+  })
+
   it('downloads newer cloud saves before the PC game starts without a separate link step', async () => {
     window.HnsDesktop = { native: true } as Window['HnsDesktop']
     mocks.account.mockReturnValue({ id: 'account', username: 'Tester' })

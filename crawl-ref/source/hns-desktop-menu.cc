@@ -563,6 +563,34 @@ void records(bool &reload)
     }
 }
 
+void death_recovery(bool &reload)
+{
+    auto result = request("death-recoveries", reload);
+    if (!result || !flag(result.get(), "ok"))
+        return;
+    const auto entries = items(result.get(), "items");
+    if (entries.empty())
+    {
+        message("Death recovery", "No recovery copies are available.\n"
+            "Future deaths keep the last level-entry checkpoint even if you skip revival.\n"
+            "Older characters can be recovered only when a previous backup remains.");
+        return;
+    }
+    vector<string> labels;
+    for (const auto &entry : entries)
+        labels.push_back(entry.second);
+    labels.push_back("Back to main menu");
+    const int selected = choose("Death recovery", labels);
+    if (selected < 0 || selected >= static_cast<int>(entries.size()))
+        return;
+    if (choose(entries[selected].second + "\nRestore this character only?\n"
+        "An existing saved game with the same name will not be overwritten.\n"
+        "Death records and other characters are kept.", {"Cancel", "Recover character"}) == 1)
+    {
+        show_result(request("death-restore", reload, arguments("id", entries[selected].first)));
+    }
+}
+
 void cloud_tools(const json_ptr &status, bool &reload)
 {
     vector<string> labels, actions;
@@ -677,6 +705,7 @@ bool hns_desktop_menu(int menu)
     case 3: show_result(request("backup-export", reload)); break;
     case 4: show_result(request("backup-import", reload)); break;
     case 5: cloud(reload); break;
+    case 6: death_recovery(reload); break;
     }
     return reload;
 }

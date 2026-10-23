@@ -23,6 +23,7 @@
 #include "hints.h"
 #include "hns-desktop.h"
 #include "hns-native.h"
+#include "hns-revival.h"
 #include "initfile.h"
 #include "invent.h"
 #include "item-prop.h"
@@ -361,7 +362,14 @@ NORETURN void end_game(scorefile_entry &se)
 
     identify_inventory();
 
-    delete_files();
+    if (non_death || hns_keep_death_recovery())
+        delete_files();
+    else
+    {
+        // A failed recovery write must not destroy the last on-disk save.
+        delete you.save;
+        you.save = nullptr;
+    }
 
     string fname = morgue_name(you.your_name, se.get_death_time());
     if (!dump_char(fname, true, true, &se))
