@@ -22,7 +22,9 @@ static base_pattern &get_text_pattern(const string &s, bool checkcase)
     if (pattern_cache.size() > PATTERN_FLUSH_CEILING)
         pattern_cache.clear();
 
-    if (s[0] != '=' && (s[0] == '/' || Options.regex_search))
+    if (item_total_pattern::is_total_pattern(s))
+        pattern_cache[s] = make_unique<item_total_pattern>(s);
+    else if (s[0] != '=' && (s[0] == '/' || Options.regex_search))
     {
         string pattern(s);
         if (s[0] == '/')

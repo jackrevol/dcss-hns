@@ -340,6 +340,7 @@ void populate_map_cell_with_item(const coord_def& c, map_cell& cell);
 vector<item_def> item_list_in_stash(const coord_def& pos);
 
 string userdef_annotate_item(const char *s, const item_def *item);
+string stash_item_totals(const item_def &item);
 string stash_annotate_item(const char *s, const item_def *item);
 
 #define STASH_LUA_SEARCH_ANNOTATE "ch_stash_search_annotate_item"

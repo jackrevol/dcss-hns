@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <sstream>
 
+#include "artefact.h"
 #include "chardump.h"
 #include "clua.h"
 #include "cluautil.h"
@@ -53,6 +54,79 @@
 // Global
 StashTracker StashTrack;
 
+string stash_item_totals(const item_def &item)
+{
+    if (!item.is_identified()
+        || (item.base_type != OBJ_WEAPONS && item.base_type != OBJ_ARMOUR
+            && item.base_type != OBJ_JEWELLERY && item.base_type != OBJ_STAVES
+            && item.base_type != OBJ_TALISMANS))
+    {
+        return "";
+    }
+
+    int res = 0;
+    int stat = 0;
+    if (item.base_type == OBJ_ARMOUR)
+    {
+        res = get_armour_res_fire(item, true)
+              + get_armour_res_cold(item, true)
+              + get_armour_res_poison(item, true)
+              + get_armour_res_elec(item, true)
+              + get_armour_life_protection(item, true)
+              + get_armour_res_corr(item, true)
+              + get_armour_willpower(item, true) / WL_PIP;
+        const auto ego = get_armour_ego_type(item);
+        if (ego == SPARM_STRENGTH || ego == SPARM_INTELLIGENCE
+            || ego == SPARM_DEXTERITY)
+        {
+            stat += 3;
+        }
+    }
+    else if (item.base_type == OBJ_JEWELLERY)
+    {
+        res = get_jewellery_res_fire(item, true)
+              + get_jewellery_res_cold(item, true)
+              + get_jewellery_res_poison(item, true)
+              + get_jewellery_res_elec(item, true)
+              + get_jewellery_life_protection(item, true)
+              + min(1, get_jewellery_res_corr(item, true))
+              + get_jewellery_willpower(item, true) / WL_PIP;
+        if (item.sub_type == RING_STRENGTH || item.sub_type == RING_INTELLIGENCE
+            || item.sub_type == RING_DEXTERITY)
+        {
+            stat += item.plus;
+        }
+    }
+    else if (item.base_type == OBJ_STAVES)
+    {
+        if (item.sub_type == STAFF_FIRE || item.sub_type == STAFF_COLD
+            || item.sub_type == STAFF_AIR || item.sub_type == STAFF_NECROMANCY
+            || item.sub_type == STAFF_ALCHEMY)
+        {
+            res += 1;
+        }
+    }
+
+    if (is_artefact(item))
+    {
+        // Armour and jewellery accessors already include artefact resists.
+        if (item.base_type != OBJ_ARMOUR && item.base_type != OBJ_JEWELLERY)
+        {
+            for (const auto prop : {ARTP_FIRE, ARTP_COLD, ARTP_ELECTRICITY,
+                                   ARTP_POISON, ARTP_NEGATIVE_ENERGY,
+                                   ARTP_WILLPOWER, ARTP_RCORR})
+            {
+                res += artefact_property(item, prop);
+            }
+        }
+        res += artefact_property(item, ARTP_RMUT);
+        for (const auto prop : {ARTP_STRENGTH, ARTP_INTELLIGENCE, ARTP_DEXTERITY})
+            stat += artefact_property(item, prop);
+    }
+
+    return make_stringf("{res:%d} {stat:%d} ", res, stat);
+}
+
 string userdef_annotate_item(const char *s, const item_def *item)
 {
     lua_stack_cleaner cleaner(clua);
@@ -72,6 +146,9 @@ string stash_annotate_item(const char *s, const item_def *item)
     // do anything with gold, but I'm not sure why you'd want to.
     string text = item->base_type == OBJ_GOLD
                             ? "{gold}" : userdef_annotate_item(s, item);
+
+    if (strcmp(s, STASH_LUA_SEARCH_ANNOTATE) == 0)
+        text = stash_item_totals(*item) + text;
 
     if (item->has_spells())
     {
@@ -1517,9 +1594,12 @@ void StashTracker::search_stashes(string search_term)
     lua_text_pattern ltpat(csearch);
     text_pattern tpat(csearch, true);
     plaintext_pattern ptpat(csearch, true);
+    item_total_pattern totalpat(csearch);
 
     if (lua_text_pattern::is_lua_pattern(csearch))
         search = &ltpat;
+    else if (item_total_pattern::is_total_pattern(csearch))
+        search = &totalpat;
     else if (csearch[0] != '='
              && (csearch == "." || csearch == ".." || csearch[0] == '/'
                  || Options.regex_search))

@@ -154,3 +154,23 @@ private:
     string pattern;
     bool ignore_case;
 };
+
+// Compare an item's {res:N} or {stat:N} stash annotation numerically.
+class item_total_pattern : public base_pattern
+{
+public:
+    explicit item_total_pattern(const string &s);
+    static bool is_total_pattern(const string &s);
+
+    bool valid() const override { return isvalid; }
+    bool matches(const string &s) const override;
+    pattern_match match_location(const string &s) const override;
+    const string &tostring() const override { return pattern; }
+
+private:
+    string pattern;
+    string field;
+    string comparison;
+    int threshold = 0;
+    bool isvalid = false;
+};

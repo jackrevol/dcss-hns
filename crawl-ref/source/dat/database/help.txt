@@ -125,6 +125,22 @@ You can also search by item types such as <w>book</w> or <w>manual</w> or <w>jew
 For armour slots, use <w>helmet</w> (all headgear), <w>gloves</w>, <w>shield</w>, and <w>body</w>.
 Use <w>armour && !!body</w> to list all armour pieces except for body armour.
 
+<h>Searching by resistance and stat totals:</h>
+
+Use <w>res>=3</w> to find identified equipment with a resistance total of at
+least 3, or <w>stat>=10</w> for a total of at least 10 strength, intelligence
+and dexterity. Totals include base equipment bonuses, egos and artefact
+properties; vulnerabilities and negative stats subtract from the total.
+The resistance total adds rF, rC, rN, rPois, rElec, rCorr, rMut and Will
+levels (each Will+ counts as 1). Other abilities and temporary effects
+are not counted. Unidentified equipment is excluded from total comparisons.
+
+Comparisons support <w>=</w>, <w>!=</w>, <w>></w>, <w>>=</w>, <w><<</w> and <w><<=</w>.
+For example, <w>stat=6</w> finds a total of exactly 6, while <w>res<<0</w>
+finds a negative resistance total. Spaces and upper-case names are allowed.
+Combine these with other searches: <w>armour && res>=3 && stat>=6</w>.
+They search inventory, known floor items and shop stock, like other queries.
+
 <h>Finding Dungeon Features:</h>
 
 You can search for dungeon features by name: all shops will be found by a search
