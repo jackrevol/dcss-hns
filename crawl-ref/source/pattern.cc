@@ -1,5 +1,7 @@
 #include "AppHdr.h"
 
+#include <sstream>
+
 #ifdef REGEX_PCRE
     // Statically link pcre on Windows
     #if defined(TARGET_OS_WINDOWS)
@@ -228,4 +230,78 @@ pattern_match plaintext_pattern::match_location(const string &s) const
         return pattern_match::succeeded(s, pos, pos + pattern.length());
     else
         return pattern_match::failed(s);
+}
+
+bool item_total_pattern::is_total_pattern(const string &s)
+{
+    string text = lowercase_string(s);
+    trim_string(text);
+    const size_t end = text.find_first_of(" \t\r\n<>=!");
+    const string field = text.substr(0, end);
+    if (field != "res" && field != "stat")
+        return false;
+    const size_t op = text.find_first_not_of(" \t\r\n", end);
+    return op != string::npos && string("<>=!").find(text[op]) != string::npos;
+}
+
+item_total_pattern::item_total_pattern(const string &s) : pattern(s)
+{
+    if (!is_total_pattern(s))
+        return;
+
+    string text = lowercase_string(s);
+    trim_string(text);
+    const size_t end = text.find_first_of(" \t\r\n<>=!");
+    field = text.substr(0, end);
+    const size_t op = text.find_first_not_of(" \t\r\n", end);
+    const size_t value = text.find_first_not_of("<>=!", op);
+    comparison = text.substr(op, value - op);
+    if (comparison != "=" && comparison != "!="
+        && comparison != "<" && comparison != "<="
+        && comparison != ">" && comparison != ">=")
+    {
+        return;
+    }
+
+    if (value == string::npos)
+        return;
+    std::istringstream input(text.substr(value));
+    if (input >> threshold)
+    {
+        input >> std::ws;
+        isvalid = input.eof();
+    }
+}
+
+bool item_total_pattern::matches(const string &s) const
+{
+    if (!valid())
+        return false;
+
+    const string tag = "{" + field + ":";
+    const size_t start = s.find(tag);
+    if (start == string::npos)
+        return false;
+    std::istringstream input(s.substr(start + tag.size()));
+    int total;
+    char close;
+    if (!(input >> total >> close) || close != '}')
+        return false;
+
+    if (comparison == "=")
+        return total == threshold;
+    if (comparison == "!=")
+        return total != threshold;
+    if (comparison == "<")
+        return total < threshold;
+    if (comparison == "<=")
+        return total <= threshold;
+    if (comparison == ">")
+        return total > threshold;
+    return total >= threshold;
+}
+
+pattern_match item_total_pattern::match_location(const string &s) const
+{
+    return matches(s) ? pattern_match::succeeded(s) : pattern_match::failed(s);
 }
