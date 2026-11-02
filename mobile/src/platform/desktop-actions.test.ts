@@ -21,11 +21,13 @@ beforeEach(() => {
 describe('native main menu shared actions', () => {
   it('saves all drop fields through the shared RC writer without losing unrelated options', async () => {
     const values = { hns_floor_item_rate: 450, hns_item_quality: 200, hns_item_min_level: 0,
-      hns_good_item_chance: 5, hns_randart_chance: 10, hns_gold_amount: 100, hns_consumable_amount: 100 }
+      hns_good_item_chance: 5, hns_randart_chance: 10, hns_gold_amount: 100, hns_consumable_amount: 100,
+      hns_experience_rate: 275 }
     await desktopAction({ id: 1, kind: 'loot-save', values })
     const written = new TextDecoder().decode(io.write.mock.calls[0][0][0].data)
     expect(written).toContain('# Keep this comment\ntravel_delay = -1')
     expect(written).toContain('hns_floor_item_rate = 450')
+    expect(written).toContain('hns_experience_rate = 275')
     expect(io.release).toHaveBeenCalledOnce()
     await expect(desktopAction({ id: 2, kind: 'loot-save', values: { ...values, hns_randart_chance: 101 } })).rejects.toThrow()
     expect(io.write).toHaveBeenCalledOnce()

@@ -319,6 +319,7 @@ catch2-tests/test_english.o \
 catch2-tests/test_files.o \
 catch2-tests/test_items.o \
 catch2-tests/test_hns_loot.o \
+catch2-tests/test_hns_experience.o \
 catch2-tests/test_mon-util.o \
 catch2-tests/test_ng-init-branches.o \
 catch2-tests/test_player.o \

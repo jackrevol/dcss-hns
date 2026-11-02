@@ -33,7 +33,7 @@ export async function desktopAction(action: DesktopAction): Promise<DesktopActio
     case 'loot-save': return local(async () => {
       const settings = Object.fromEntries(LOOT_FIELDS.map(field => [field.key, action.values?.[field.key]])) as LootSettings
       await saveRc(writeLootSettings(await rcText(), settings))
-      return ok('Drop settings saved. They apply when you start or resume a game.')
+      return ok('Drop / XP settings saved. They apply when you start or resume a game.')
     })
     case 'rc-get': return local(async () => ok('', { text: await rcText() }))
     case 'rc-save': return local(async () => { await saveRc(value(action, 'text')); return ok('Options saved.') })

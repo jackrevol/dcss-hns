@@ -15,7 +15,7 @@ lifecycle saves, raw JSPI artifact fallback for Android packaging, HNS labels/so
 portable data stamps, cache identities covering engine and tile bytes, publication
 of the identity after the complete pack, reproducible build scripts, and
 dependency patch updates. Local HNS loot settings add adjustable floor loot,
-quality, artefacts, and stack quantities; these are
+quality, artefacts, stack quantities, and experience gain; these are
 not upstream PocketZot gameplay rules.
 The private upstream HTML-link checker is replaced by the normal Vite build.
 Upstream tests and golden captures are retained. Do not replace HNS gameplay

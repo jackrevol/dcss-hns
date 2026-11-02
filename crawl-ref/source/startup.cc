@@ -712,7 +712,7 @@ public:
             title->set_margin_for_sdl(8, 0, 6, 0);
             m_root->add_child(title);
             auto menu = make_shared<Grid>();
-            const char *labels[] = {"[F2] Item drops", "[F3] Options file", "[F4] Past games / morgues",
+            const char *labels[] = {"[F2] Item drops / XP", "[F3] Options file", "[F4] Past games / morgues",
                 "[F5] Export save backup", "[F6] Import save backup", "[F7] Cloud saves",
                 "[F8] Death recovery"};
             for (int i = 0; i < 7; ++i)
