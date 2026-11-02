@@ -13,6 +13,8 @@ export const LOOT_FIELDS = [
     help: '생성되는 골드 한 묶음의 양입니다. 최소 1개를 보장합니다.' },
   { key: 'hns_consumable_amount', label: '소모품 묶음 수량', unit: '배', scale: 100, min: 1, max: 1000, value: 100,
     help: '새 바닥의 물약·스크롤·탄약 묶음 개수입니다. 금고·특수방도 포함하며 최소 1개를 보장합니다. 기존 아이템·몬스터 소지품·상점은 유지합니다.' },
+  { key: 'hns_experience_rate', label: '획득 경험치 배율', unit: '배', scale: 100, min: 0, max: 1000, value: 100,
+    help: '처치·중립화로 획득하는 경험치에 적용합니다. 레벨·스킬 성장과 경험치 기반 회복에도 반영되며, 0배면 획득하지 않습니다. 경험치 물약은 기존 효과를 유지합니다.' },
 ] as const
 
 export type LootKey = typeof LOOT_FIELDS[number]['key']

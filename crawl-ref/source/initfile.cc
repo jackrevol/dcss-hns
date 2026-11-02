@@ -802,6 +802,7 @@ const vector<GameOption*> game_options::build_options_list()
         new IntGameOption(SIMPLE_NAME(hns_randart_chance), 0, 0, 100),
         new IntGameOption(SIMPLE_NAME(hns_gold_amount), 100, 1, 1000),
         new IntGameOption(SIMPLE_NAME(hns_consumable_amount), 100, 1, 1000),
+        new IntGameOption(SIMPLE_NAME(hns_experience_rate), 100, 0, 1000),
 #ifdef DGAMELAUNCH
         new DisabledGameOption(
             {"name_bypasses_menu", "restart_after_save", "newgame_after_quit",
@@ -5566,6 +5567,7 @@ void game_options::write_webtiles_options(const string& name)
     tiles.json_write_int("hns_randart_chance", hns_randart_chance);
     tiles.json_write_int("hns_gold_amount", hns_gold_amount);
     tiles.json_write_int("hns_consumable_amount", hns_consumable_amount);
+    tiles.json_write_int("hns_experience_rate", hns_experience_rate);
     tiles.json_close_object();
 
     _write_colour_list(hp_colour, "hp_colour");

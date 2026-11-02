@@ -81,16 +81,17 @@ try {
   await page.locator('#offline-loot').tap()
   await expect(page.locator('input[name="hns_floor_item_rate"]')).toHaveValue('3')
   await expect(page.locator('input[name="hns_item_quality"]')).toHaveValue('2')
-  await page.getByRole('button', { name: '원본 드랍값', exact: true }).tap()
+  await expect(page.locator('input[name="hns_experience_rate"]')).toHaveValue('1')
+  await page.getByRole('button', { name: '원본 기본값', exact: true }).tap()
   await expect(page.locator('input[name="hns_floor_item_rate"]')).toHaveValue('1')
   await page.getByRole('button', { name: 'HNS 기본값', exact: true }).tap()
   const chosenLoot = {
     hns_floor_item_rate: 350, hns_item_quality: 175, hns_item_min_level: 20,
     hns_good_item_chance: 75, hns_randart_chance: 100,
-    hns_gold_amount: 200, hns_consumable_amount: 300,
+    hns_gold_amount: 200, hns_consumable_amount: 300, hns_experience_rate: 275,
   }
   for (const [name, value] of Object.entries(chosenLoot)) {
-    const scale = ['hns_floor_item_rate', 'hns_item_quality', 'hns_gold_amount', 'hns_consumable_amount'].includes(name) ? 100 : 1
+    const scale = ['hns_floor_item_rate', 'hns_item_quality', 'hns_gold_amount', 'hns_consumable_amount', 'hns_experience_rate'].includes(name) ? 100 : 1
     await page.locator(`input[name="${name}"]`).fill(String(value / scale))
   }
   await page.locator('.hns-loot-settings').evaluate(el => { el.scrollTop = 0 })
@@ -98,7 +99,7 @@ try {
   await page.locator('input[name="hns_consumable_amount"]').scrollIntoViewIfNeeded()
   await page.screenshot({ path: resolve(evidence, 'loot-settings-quantities.png') })
   await page.getByRole('button', { name: '저장', exact: true }).tap()
-  await bodyContains('아이템 드랍 설정을 저장했습니다.')
+  await bodyContains('아이템 드랍·경험치 설정을 저장했습니다.')
   await page.locator('#offline-new').tap()
   await page.locator('#offline-name').fill('HnsSmoke')
   await page.locator('#offline-name-form button[type=submit]').tap()
@@ -194,6 +195,7 @@ try {
   await page.locator('#offline-loot').tap()
   await expect(page.locator('input[name="hns_floor_item_rate"]')).toHaveValue('3.5')
   await expect(page.locator('input[name="hns_consumable_amount"]')).toHaveValue('3')
+  await expect(page.locator('input[name="hns_experience_rate"]')).toHaveValue('2.75')
   await page.locator('.settings-card .doc-close').tap()
   await page.locator('.offline-slot-row').tap()
   await bodyContains('Welcome back, HnsSmoke')

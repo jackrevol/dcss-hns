@@ -25,12 +25,33 @@ describe('loot settings panel', () => {
     await openLootSettings(saved)
     input('hns_floor_item_rate').value = '2.5'
     input('hns_item_min_level').value = '20'
+    input('hns_experience_rate').value = '2.75'
     submit()
     await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce())
     const rc = new TextDecoder().decode(write.mock.calls[0][0][0].data)
     expect(rc).toContain('default_manual_training = true')
     expect(parseLootSettings(rc).hns_floor_item_rate).toBe(250)
     expect(parseLootSettings(rc).hns_item_min_level).toBe(20)
+    expect(parseLootSettings(rc).hns_experience_rate).toBe(275)
+  })
+
+  it('loads saved XP rates and both presets restore 1x experience', async () => {
+    read.mockResolvedValue(new TextEncoder().encode('hns_experience_rate = 250\n'))
+    await openLootSettings(vi.fn())
+    expect(input('hns_experience_rate').value).toBe('2.5')
+    for (const label of ['HNS 기본값', '원본 기본값']) {
+      input('hns_experience_rate').value = '0'
+      Array.from(document.querySelectorAll('button')).find(button => button.textContent === label)!.click()
+      expect(input('hns_experience_rate').value).toBe('1')
+    }
+  })
+
+  it('allows disabling experience gain', async () => {
+    await openLootSettings(vi.fn())
+    input('hns_experience_rate').value = '0'
+    submit()
+    await vi.waitFor(() => expect(write).toHaveBeenCalledOnce())
+    expect(parseLootSettings(new TextDecoder().decode(write.mock.calls[0][0][0].data)).hns_experience_rate).toBe(0)
   })
 
   it('discards changes with Escape', async () => {

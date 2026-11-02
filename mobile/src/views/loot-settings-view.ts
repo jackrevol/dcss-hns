@@ -7,12 +7,12 @@ export async function openLootSettings(onSaved: (notice: string) => void, canEdi
   if (!canEdit()) return
   let saving = false
   const rc = bytes ? new TextDecoder().decode(bytes) : ''
-  const { body, close } = mountCardOverlay('아이템 드랍 설정', {
+  const { body, close } = mountCardOverlay('아이템 드랍·경험치 설정', {
     card: 'settings-card', body: 'settings-body hns-loot-settings',
   }, undefined, () => saving)
   const note = document.createElement('p')
   note.className = 'settings-footer'
-  note.textContent = '이 기기의 HNS 오프라인 게임 전체에서 공유합니다. 소모품 묶음 수량은 금고·특수방을 포함한 새 바닥 아이템에 적용하며, 나머지 옵션은 일반 랜덤 바닥 아이템에 적용합니다. 저장 후 게임을 시작·재개하면 새로 생성되는 아이템부터 반영됩니다. 기존 아이템과 몬스터의 소지 장비는 유지됩니다.'
+  note.textContent = '이 기기의 HNS 오프라인 게임 전체에서 공유합니다. 저장 후 게임을 시작·재개하면 경험치 배율은 이후 획득분부터, 드랍 옵션은 새로 생성되는 아이템부터 반영됩니다. 소모품 묶음 수량은 금고·특수방을 포함한 새 바닥 아이템에, 나머지 드랍 옵션은 일반 랜덤 바닥 아이템에 적용합니다. 기존 아이템과 몬스터의 소지 장비는 유지됩니다.'
   body.appendChild(note)
   const form = document.createElement('form')
   const settings = parseLootSettings(rc)
@@ -64,7 +64,7 @@ export async function openLootSettings(onSaved: (notice: string) => void, canEdi
     actions.appendChild(button)
   }
   preset('HNS 기본값', false)
-  preset('원본 드랍값', true)
+  preset('원본 기본값', true)
   const save = document.createElement('button')
   save.type = 'submit'
   save.className = 'lobby-btn-primary'
@@ -87,7 +87,7 @@ export async function openLootSettings(onSaved: (notice: string) => void, canEdi
       buttons.forEach(button => { button.disabled = true })
       inputs.forEach(input => { input.disabled = true })
       void writeOfflineFiles([{ path: '/crawl/init.txt', mode: 0o100664, mtimeMs: Date.now(), data }])
-        .then(() => { saving = false; close(); onSaved('아이템 드랍 설정을 저장했습니다.') })
+        .then(() => { saving = false; close(); onSaved('아이템 드랍·경험치 설정을 저장했습니다.') })
         .catch((failure: unknown) => {
           saving = false
           buttons.forEach(button => { button.disabled = false })

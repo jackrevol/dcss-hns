@@ -128,8 +128,8 @@ export function buildOfflineLobbyView(
         <div class="offline-device-row">
           <span class="offline-device-glyph" aria-hidden="true">${PENCIL_ICON}</span>
           <span class="offline-device-lines">
-            <span class="offline-device-label">아이템 드랍</span>
-            <span class="offline-device-sub">바닥 생성량·품질·묶음 수량</span>
+            <span class="offline-device-label">아이템 드랍·경험치</span>
+            <span class="offline-device-sub">바닥 생성량·품질·묶음 수량·경험치 배율</span>
           </span>
           <button type="button" id="offline-loot" class="offline-device-btn">설정</button>
         </div>

@@ -6,6 +6,7 @@ describe('HNS loot settings RC file', () => {
     const settings = parseLootSettings('')
     expect(settings.hns_floor_item_rate).toBe(300)
     expect(settings.hns_item_quality).toBe(200)
+    expect(settings.hns_experience_rate).toBe(100)
   })
 
   it('reads the last valid assignment and ignores comments and Lua blocks', () => {
@@ -20,6 +21,11 @@ describe('HNS loot settings RC file', () => {
     const output = writeLootSettings(rc, settings)
     expect(output).toContain(rc.trim())
     expect(parseLootSettings(output)).toEqual(settings)
+  })
+
+  it('reads XP rates including zero while ignoring invalid overrides', () => {
+    expect(parseLootSettings('hns_experience_rate = 250\n').hns_experience_rate).toBe(250)
+    expect(parseLootSettings('hns_experience_rate = 0\nhns_experience_rate = -1\nhns_experience_rate = 1001\n').hns_experience_rate).toBe(0)
   })
 
   it('replaces its own block without accumulating settings on repeated saves', () => {

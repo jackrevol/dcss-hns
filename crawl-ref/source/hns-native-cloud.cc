@@ -599,8 +599,11 @@ Json Backend::action(const std::string &kind, const Json &values)
         if (kind == "loot-get" || kind == "loot-save")
         {
             const std::vector<std::string> keys = {"hns_floor_item_rate", "hns_item_quality", "hns_item_min_level",
-                "hns_good_item_chance", "hns_randart_chance", "hns_gold_amount", "hns_consumable_amount"};
-            const int defaults[] = {300, 200, 0, 0, 0, 100, 100}, maximum[] = {1000, 1000, 50, 100, 100, 1000, 1000};
+                "hns_good_item_chance", "hns_randart_chance", "hns_gold_amount", "hns_consumable_amount",
+                "hns_experience_rate"};
+            const int defaults[] = {300, 200, 0, 0, 0, 100, 100, 100};
+            const int minimum[] = {0, 0, 0, 0, 0, 1, 1, 0};
+            const int maximum[] = {1000, 1000, 50, 100, 100, 1000, 1000, 1000};
             auto settings = Json::object();
             for (size_t i = 0; i < keys.size(); ++i) settings[keys[i]] = defaults[i];
             std::istringstream stream(rc()); std::string line; bool lua = false;
@@ -615,15 +618,15 @@ Json Backend::action(const std::string &kind, const Json &values)
                         if (match[1] == keys[i])
                         {
                             const double value = std::stod(match[2]);
-                            if (value >= (i >= 5 ? 1 : 0) && value <= maximum[i]) settings[keys[i]] = int(value);
+                            if (value >= minimum[i] && value <= maximum[i]) settings[keys[i]] = int(value);
                         }
             }
             if (kind == "loot-get") { auto result = ok(); result["values"] = settings; return result; }
             for (size_t i = 0; i < keys.size(); ++i)
                 if (!values.contains(keys[i]) || !values[keys[i]].is_number_integer()
-                    || values[keys[i]].get<int64_t>() < (i >= 5 ? 1 : 0) || values[keys[i]].get<int64_t>() > maximum[i])
+                    || values[keys[i]].get<int64_t>() < minimum[i] || values[keys[i]].get<int64_t>() > maximum[i])
                 {
-                    throw std::runtime_error("Invalid drop settings.");
+                    throw std::runtime_error("Invalid drop / XP settings.");
                 }
             const std::string begin = "# BEGIN HNS LOOT SETTINGS", end = "# END HNS LOOT SETTINGS";
             Bytes kept; std::istringstream old(rc()); bool block = false;
@@ -637,7 +640,7 @@ Json Backend::action(const std::string &kind, const Json &values)
             kept += begin + "\n";
             for (const auto &key : keys) kept += key + " = " + std::to_string(values[key].get<int>()) + "\n";
             atomic_write(rc_path, kept + end + "\n");
-            return ok("Drop settings saved. They apply when you start or resume a game.");
+            return ok("Drop / XP settings saved. They apply when you start or resume a game.");
         }
         if (kind == "cloud-status")
         {

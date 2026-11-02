@@ -133,7 +133,8 @@ static bool _hns_menu_test_event(wm_event *event)
         const auto expected = json_find_member(command, "values");
         const pair<const char*, int> settings[] = {
             {"hns_floor_item_rate", Options.hns_floor_item_rate},
-            {"hns_consumable_amount", Options.hns_consumable_amount}
+            {"hns_consumable_amount", Options.hns_consumable_amount},
+            {"hns_experience_rate", Options.hns_experience_rate}
         };
         for (const auto &setting : settings)
             if (const auto wanted = json_find_member(expected, setting.first))

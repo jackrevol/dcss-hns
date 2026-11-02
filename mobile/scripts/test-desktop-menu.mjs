@@ -26,10 +26,10 @@ if (existsSync(fixture)) {
   step('activate', '[F6] Import save backup'); step('activate', 'Enter full path'); step('fill', fixture, 0); step('enter'); step('escape'); step('expect', 'HnsSmoke')
 }
 step('activate', '[F2] Item drops'); step('activate', 'Edit drop settings')
-step('fill', '4.5', 0); step('fill', '5', 6); step('snapshot', resolve(output, 'drops.png'))
+step('fill', '4.5', 0); step('fill', '5', 6); step('fill', '2.75', 7); step('snapshot', resolve(output, 'drops.png'))
 step('activate', '[Enter] Save / continue'); step('escape')
 step('expect', '[F3] Options file')
-steps.push({ kind: 'expect-settings', values: { hns_floor_item_rate: 450, hns_consumable_amount: 500 } })
+steps.push({ kind: 'expect-settings', values: { hns_floor_item_rate: 450, hns_consumable_amount: 500, hns_experience_rate: 275 } })
 step('activate', '[F3] Options file')
 step('expect', 'hns_floor_item_rate = 450'); step('snapshot', resolve(output, 'options.png'))
 step('activate', 'Discard changes')

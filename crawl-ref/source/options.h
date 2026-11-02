@@ -797,6 +797,7 @@ public:
     int         hns_randart_chance;
     int         hns_gold_amount;
     int         hns_consumable_amount;
+    int         hns_experience_rate;
     bool        newgame_after_quit; // override the restart_after_game behaviour
                                     // to always start a new game on quit.
 

@@ -2925,7 +2925,13 @@ unsigned int gain_exp(unsigned int exp_gained)
     if (crawl_state.game_is_arena())
         return 0;
 
-    you.experience_pool += exp_gained;
+    // Scale once, before XL, skill training and XP-gated effects share the pool.
+    // Use wide arithmetic and cap the pool to keep large awards from wrapping.
+    const uint64_t scaled = (uint64_t(exp_gained) * Options.hns_experience_rate
+                             + 50) / 100;
+    exp_gained = min<uint64_t>(scaled, MAX_EXP_TOTAL);
+    you.experience_pool = min<uint64_t>(uint64_t(you.experience_pool) + exp_gained,
+                                      MAX_EXP_TOTAL);
 
     if (player_under_penance(GOD_HEPLIAKLQANA))
         return 0; // no XP for you!

@@ -371,13 +371,15 @@ void show_result(const json_ptr &result)
 void loot(bool &reload)
 {
     const char *keys[] = {"hns_floor_item_rate", "hns_item_quality", "hns_item_min_level",
-        "hns_good_item_chance", "hns_randart_chance", "hns_gold_amount", "hns_consumable_amount"};
+        "hns_good_item_chance", "hns_randart_chance", "hns_gold_amount", "hns_consumable_amount",
+        "hns_experience_rate"};
     const vector<string> labels = {"Floor item amount (0-10x)", "Item quality factor (0-10x)",
         "Minimum quality level (0-50)", "Good item chance (0-100%)", "Random artefact chance (0-100%)",
-        "Gold stack amount (0.01-10x)", "Floor consumable stack amount (0.01-10x)"};
-    const int scale[] = {100, 100, 1, 1, 1, 100, 100};
-    const int minimum[] = {0, 0, 0, 0, 0, 1, 1};
-    const int maximum[] = {1000, 1000, 50, 100, 100, 1000, 1000};
+        "Gold stack amount (0.01-10x)", "Floor consumable stack amount (0.01-10x)",
+        "Experience gain (0-10x)"};
+    const int scale[] = {100, 100, 1, 1, 1, 100, 100, 100};
+    const int minimum[] = {0, 0, 0, 0, 0, 1, 1, 0};
+    const int maximum[] = {1000, 1000, 50, 100, 100, 1000, 1000, 1000};
     auto current = request("loot-get", reload);
     if (!current || !flag(current.get(), "ok"))
         return;
@@ -390,13 +392,17 @@ void loot(bool &reload)
     }
     while (true)
     {
-        int choice = choose("Item drops", {"Edit drop settings", "Use HNS defaults", "Use original Crawl drops",
-            "About drop settings", "Back to main menu"});
+        int choice = choose("Item drops / XP", {"Edit drop settings / XP", "Use HNS defaults", "Use original Crawl defaults",
+            "About drop settings / XP", "Back to main menu"});
         if (choice < 0 || choice == 4)
             return;
         if (choice == 3)
         {
-            message("Item drops", "Settings are shared by all characters and apply to newly generated items.\n\n"
+            message("Item drops / XP", "Settings are shared by all characters and apply when you start or resume a game.\n\n"
+                "Experience gain scales XP from kills and pacification (default 1x).\n"
+                "It affects XL, skills and XP-based recovery; 0x disables XP gain.\n"
+                "Experience potions keep their original effects.\n"
+                "Drop settings apply to newly generated items.\n"
                 "Quality scales the depth quality factor, not enchantment bonuses.\n"
                 "Set a minimum quality level to improve shallow-floor items.\n"
                 "Artefact chances apply to weapons, armour, jewellery and talismans.\n"
@@ -406,8 +412,8 @@ void loot(bool &reload)
             continue;
         }
         if (choice == 1 || choice == 2)
-            values = {choice == 1 ? "3" : "1", choice == 1 ? "2" : "1", "0", "0", "0", "1", "1"};
-        if (choice == 0 && !form("Item drop settings", labels, values))
+            values = {choice == 1 ? "3" : "1", choice == 1 ? "2" : "1", "0", "0", "0", "1", "1", "1"};
+        if (choice == 0 && !form("Item drop / XP settings", labels, values))
             continue;
         auto object = json_mkobject();
         bool valid = true;
@@ -425,7 +431,7 @@ void loot(bool &reload)
         if (!valid)
         {
             json_delete(object);
-            message("Item drops", "Enter numbers within the displayed ranges (multipliers support two decimal places).");
+            message("Item drops / XP", "Enter numbers within the displayed ranges (multipliers support two decimal places).");
             continue;
         }
         auto result = request("loot-save", reload, object);

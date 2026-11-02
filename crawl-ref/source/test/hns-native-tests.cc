@@ -191,6 +191,23 @@ int main(int argc, char **argv)
             assert(backend.action("cloud-status")["account"] == "native_test");
             rejects([&] { Backend duplicate(profile, "build", rpc); });
             assert(backend.action("rc-save", {{"text", "hns_floor_item_rate = 450\n"}})["ok"] == true);
+            auto settings = backend.action("loot-get")["values"];
+            assert(settings["hns_experience_rate"] == 100);
+            for (const int percent : {0, 1, 275, 1000})
+            {
+                settings["hns_experience_rate"] = percent;
+                assert(backend.action("loot-save", settings)["ok"] == true);
+                assert(backend.action("loot-get")["values"]["hns_experience_rate"] == percent);
+            }
+            const auto saved_options = read(profile / "native/crawl/init.txt");
+            for (const auto invalid : {Json(-1), Json(1001), Json(1.5)})
+            {
+                settings["hns_experience_rate"] = invalid;
+                assert(backend.action("loot-save", settings)["ok"] == false);
+                assert(read(profile / "native/crawl/init.txt") == saved_options);
+            }
+            assert(saved_options.find("hns_floor_item_rate = 450") != Bytes::npos);
+            std::cout << "PASS: XP settings default, round-trip, zero and invalid input preservation\n";
             backend.saved();
             assert(backend.action("cloud-status")["ok"] == true); // joins background upload
             assert(writes == 2 && remote != uploaded);
